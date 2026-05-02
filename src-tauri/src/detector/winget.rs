@@ -20,7 +20,7 @@ pub fn detect() -> ToolStatus {
                 None,
                 None,
                 DetectionMethod::Combined,
-                Some(format!("{error:?}")),
+                Some(error.to_string()),
                 None,
             )
         }

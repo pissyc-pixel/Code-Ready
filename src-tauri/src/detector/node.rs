@@ -20,7 +20,7 @@ pub fn detect_node() -> ToolStatus {
                 None,
                 None,
                 DetectionMethod::Combined,
-                Some(format!("{error:?}")),
+                Some(error.to_string()),
                 None,
             )
         }
@@ -61,6 +61,5 @@ fn common_node_paths() -> Option<PathBuf> {
     if let Some(program_files) = program_files_dir() {
         candidates.push(program_files.join("nodejs").join("node.exe"));
     }
-    candidates.push(PathBuf::from("D:\\nodejs\\node.exe"));
     first_existing_path(&candidates)
 }

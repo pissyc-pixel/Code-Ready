@@ -1,46 +1,123 @@
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { mockAiTools, mockBaseTools } from "./data/mockTools";
+import { useDetectEvents } from "./hooks/useDetectEvents";
+import { detectAllTools, detectTool } from "./lib/api";
 import { statusMeta } from "./lib/toolStatus";
-import type { ToolStatus } from "./types/tool";
+import type { ToolId, ToolStatus } from "./types/tool";
 
-type ToolRowProps = {
-  rows: ToolStatus[];
-};
+const initialRows = [...mockBaseTools, ...mockAiTools];
 
 function App() {
+  const [rows, setRows] = useState<ToolStatus[]>(() =>
+    initialRows.map((tool) => ({ ...tool, status: "checking" })),
+  );
+  const [isDetectingAll, setIsDetectingAll] = useState(false);
+
+  useDetectEvents((event) => {
+    applyResult(event.result);
+  });
+
+  useEffect(() => {
+    void runDetectAll();
+  }, []);
+
+  const groupedRows = useMemo(
+    () => ({
+      base: rows.filter((row) => row.category === "base"),
+      ai: rows.filter((row) => row.category === "ai"),
+    }),
+    [rows],
+  );
+
+  function applyResult(result: ToolStatus) {
+    setRows((currentRows) =>
+      currentRows.map((row) => {
+        if (row.id !== result.id) {
+          return row;
+        }
+
+        if (
+          row.lastCheckedAt &&
+          result.lastCheckedAt &&
+          row.lastCheckedAt > result.lastCheckedAt
+        ) {
+          return row;
+        }
+
+        return result;
+      }),
+    );
+  }
+
+  async function runDetectAll() {
+    setIsDetectingAll(true);
+    setRows((currentRows) =>
+      currentRows.map((row) => ({
+        ...row,
+        status: "checking",
+        errorMessage: undefined,
+      })),
+    );
+
+    try {
+      const results = await detectAllTools();
+      results.forEach((result) => {
+        applyResult(result);
+      });
+    } finally {
+      setIsDetectingAll(false);
+    }
+  }
+
+  async function runDetectOne(toolId: ToolId) {
+    setRows((currentRows) =>
+      currentRows.map((row) =>
+        row.id === toolId
+          ? { ...row, status: "checking", errorMessage: undefined }
+          : row,
+      ),
+    );
+
+    const result = await detectTool(toolId);
+    applyResult(result);
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
         <div>
-          <p className="eyebrow">Windows First · V0.1 Mock Dashboard</p>
+          <p className="eyebrow">Windows First · V0.2 Detection Dashboard</p>
           <h1>AI Coding 环境助手</h1>
           <p className="hero-copy">
-            先把状态看清楚，再逐步接入真实检测、日志脱敏和后端命令分发。
+            当前阶段只做真实检测闭环，不做安装、不接管代理、不改系统 PATH。
           </p>
         </div>
-        <button type="button">重新检测全部</button>
+        <button type="button" onClick={() => void runDetectAll()} disabled={isDetectingAll}>
+          {isDetectingAll ? "检测中..." : "重新检测全部"}
+        </button>
       </header>
 
       <section className="panel">
         <div className="panel-header">
           <h2>基础环境</h2>
-          <p>第一版只做 Windows，且不提供一键全装。</p>
+          <p>V0.2 将通过 Tauri invoke + Rust detector 返回真实状态。</p>
         </div>
-        <ToolTable rows={mockBaseTools} />
+        <ToolTable rows={groupedRows.base} onDetect={runDetectOne} />
       </section>
 
       <section className="panel">
         <div className="panel-header">
           <h2>AI Coding 工具</h2>
-          <p>V0.2 将接入真实检测与事件推送，但当前页仍保持 V0.1 的稳定骨架。</p>
+          <p>Claude Code / Codex / OpenCode / ccSwitch 先做检测，不做安装。</p>
         </div>
-        <ToolTable rows={mockAiTools} />
+        <ToolTable rows={groupedRows.ai} onDetect={runDetectOne} />
       </section>
 
       <section className="panel split-panel">
         <div className="panel-header">
           <h2>安装网络</h2>
-          <p>临时代理只作用于本客户端发起的安装命令，不接管系统代理。</p>
+          <p>网络设置入口保留，但本阶段不触发任何安装任务。</p>
         </div>
         <div className="network-card">
           <div className="network-stat">
@@ -52,31 +129,22 @@ function App() {
             <strong>npmmirror</strong>
           </div>
           <p className="network-warning">
-            注意：临时代理不保证影响 winget。如 winget 下载失败，请先开启系统级代理。
+            注意：即使后续进入安装阶段，winget 也不保证使用 HTTP_PROXY /
+            HTTPS_PROXY / ALL_PROXY。
           </p>
           <button type="button">打开安装网络设置</button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>快捷操作</h2>
-          <p>日志查看、订阅网页和 ccSwitch 打开入口会保留在首页。</p>
-        </div>
-        <div className="quick-actions">
-          <button type="button">重新检测全部</button>
-          <button type="button" disabled>
-            打开 ccSwitch
-          </button>
-          <button type="button">打开节点订阅网页</button>
-          <button type="button">导出诊断日志</button>
         </div>
       </section>
     </main>
   );
 }
 
-function ToolTable({ rows }: ToolRowProps) {
+type ToolTableProps = {
+  rows: ToolStatus[];
+  onDetect: (toolId: ToolId) => Promise<void>;
+};
+
+function ToolTable({ rows, onDetect }: ToolTableProps) {
   return (
     <div className="table-wrap">
       <table>
@@ -92,7 +160,6 @@ function ToolTable({ rows }: ToolRowProps) {
         <tbody>
           {rows.map((row) => {
             const meta = statusMeta[row.status];
-            const actionText = getActionText(row);
 
             return (
               <tr key={row.id}>
@@ -105,10 +172,10 @@ function ToolTable({ rows }: ToolRowProps) {
                 <td>
                   <span className={`status-badge ${meta.className}`}>{meta.label}</span>
                 </td>
-                <td className="mono">{row.version ?? "—"}</td>
+                <td className="mono">{row.version ?? "-"}</td>
                 <td>
-                  <div className="path-cell" title={row.executablePath ?? "—"}>
-                    {row.executablePath ?? "—"}
+                  <div className="path-cell" title={row.executablePath ?? "-"}>
+                    {row.executablePath ?? "-"}
                   </div>
                 </td>
                 <td>
@@ -116,11 +183,13 @@ function ToolTable({ rows }: ToolRowProps) {
                     <span className="checking-text">等待结果...</span>
                   ) : (
                     <div className="action-group">
-                      {actionText.map((action) => (
-                        <button key={action} type="button" className="ghost-button">
-                          {action}
-                        </button>
-                      ))}
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => void onDetect(row.id)}
+                      >
+                        重新检测
+                      </button>
                     </div>
                   )}
                   {row.errorMessage ? (
@@ -134,31 +203,6 @@ function ToolTable({ rows }: ToolRowProps) {
       </table>
     </div>
   );
-}
-
-function getActionText(row: ToolStatus): string[] {
-  switch (row.status) {
-    case "installed":
-      return ["重新检测", "打开所在位置", "查看日志"];
-    case "missing":
-      return row.id === "git"
-        ? ["安装 Git for Windows", "重新检测", "查看日志"]
-        : ["安装", "重新检测", "查看日志"];
-    case "installed_but_path_missing":
-      return ["查看修复说明", "复制 PATH 修复命令", "重新检测", "查看日志"];
-    case "broken":
-      return ["重新安装", "重新检测", "查看日志", "复制错误"];
-    case "detect_failed":
-      return ["重新检测", "查看日志", "复制错误"];
-    case "install_failed":
-      return ["重试安装", "重新检测", "查看日志", "复制错误"];
-    case "installing":
-      return ["查看日志", "取消安装"];
-    case "checking":
-      return [];
-    default:
-      return ["重新检测", "查看日志"];
-  }
 }
 
 export default App;

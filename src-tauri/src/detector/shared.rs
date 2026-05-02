@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -17,7 +18,14 @@ pub struct CommandOutput {
 #[derive(Debug, Clone)]
 pub enum ProbeError {
     Spawn(String),
-    Timeout(String),
+}
+
+impl fmt::Display for ProbeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Spawn(message) => write!(f, "{message}"),
+        }
+    }
 }
 
 pub fn now_iso_string() -> String {
@@ -33,6 +41,32 @@ pub fn resolve_cli_status(
         Err(_) => ToolInstallStatus::DetectFailed,
         Ok(Some(output)) if output.exit_code == 0 && where_hit => ToolInstallStatus::Installed,
         Ok(Some(output)) if output.exit_code == 0 && path_hit => {
+            ToolInstallStatus::InstalledButPathMissing
+        }
+        Ok(Some(_)) if where_hit || path_hit => ToolInstallStatus::Broken,
+        Ok(Some(output)) if output.exit_code == 0 => ToolInstallStatus::Installed,
+        Ok(Some(_)) => ToolInstallStatus::Broken,
+        Ok(None) if path_hit => ToolInstallStatus::InstalledButPathMissing,
+        Ok(None) if where_hit => ToolInstallStatus::Broken,
+        Ok(None) => ToolInstallStatus::Missing,
+    }
+}
+
+pub fn resolve_auth_sensitive_status(
+    where_hit: bool,
+    path_hit: bool,
+    version_result: Result<Option<CommandOutput>, ProbeError>,
+) -> ToolInstallStatus {
+    match version_result {
+        Err(_) => ToolInstallStatus::DetectFailed,
+        Ok(Some(output)) if output.exit_code == 0 && where_hit => ToolInstallStatus::Installed,
+        Ok(Some(output)) if output.exit_code == 0 && path_hit => {
+            ToolInstallStatus::InstalledButPathMissing
+        }
+        Ok(Some(output)) if is_auth_or_config_required(&output) && where_hit => {
+            ToolInstallStatus::Installed
+        }
+        Ok(Some(output)) if is_auth_or_config_required(&output) && path_hit => {
             ToolInstallStatus::InstalledButPathMissing
         }
         Ok(Some(_)) if where_hit || path_hit => ToolInstallStatus::Broken,
@@ -77,6 +111,37 @@ pub fn extract_version_line(output: &CommandOutput) -> Option<String> {
         .map(str::trim)
         .find(|line| !line.is_empty())
         .map(ToOwned::to_owned)
+}
+
+pub fn command_error_message(output: &CommandOutput) -> Option<String> {
+    let stderr = output.stderr.trim();
+    if !stderr.is_empty() {
+        return Some(stderr.to_string());
+    }
+
+    let stdout = output.stdout.trim();
+    if !stdout.is_empty() {
+        return Some(stdout.to_string());
+    }
+
+    None
+}
+
+pub fn is_auth_or_config_required(output: &CommandOutput) -> bool {
+    let combined = format!("{}\n{}", output.stdout, output.stderr).to_ascii_lowercase();
+    [
+        "login",
+        "log in",
+        "auth",
+        "api key",
+        "not authenticated",
+        "please sign in",
+        "sign in",
+        "signin",
+        "unauthorized",
+    ]
+    .iter()
+    .any(|keyword| combined.contains(keyword))
 }
 
 pub fn run_command(program: &str, args: &[&str]) -> Result<CommandOutput, ProbeError> {
@@ -226,5 +291,29 @@ mod tests {
             Err(ProbeError::Spawn("spawn failed".to_string())),
         );
         assert!(matches!(status, ToolInstallStatus::DetectFailed));
+    }
+
+    #[test]
+    fn auth_sensitive_status_treats_login_required_as_installed() {
+        let output = CommandOutput {
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "please sign in before continuing".to_string(),
+        };
+
+        let status = resolve_auth_sensitive_status(true, false, Ok(Some(output)));
+        assert!(matches!(status, ToolInstallStatus::Installed));
+    }
+
+    #[test]
+    fn auth_sensitive_status_treats_login_required_path_probe_as_path_missing() {
+        let output = CommandOutput {
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "not authenticated".to_string(),
+        };
+
+        let status = resolve_auth_sensitive_status(false, true, Ok(Some(output)));
+        assert!(matches!(status, ToolInstallStatus::InstalledButPathMissing));
     }
 }

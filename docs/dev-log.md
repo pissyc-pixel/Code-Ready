@@ -102,3 +102,123 @@ V0.1 当前状态：
 8. 是否做了一键全装：否
 9. 是否做了自动 outdated 判断：否
 10. 是否为了赶进度删除核心约束：否
+
+# V0.2 Phase 3 Validation
+
+## Time
+
+2026-05-02 16:44 (Asia/Shanghai)
+
+## Scope
+
+- Implement AI tool detectors for `claude`, `codex`, `opencode`, and `ccswitch`.
+- Emit `detect:result` from Rust during serial `detect_all_tools()`.
+- Switch the frontend from static mock-only rendering to `checking` initial state plus real event-driven updates.
+- Keep V0.2 detection-only: no install commands, no cancel flow, no ccSwitch download, no PATH repair.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 1 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+36 modules transformed
+dist/ artifacts generated
+built in 822ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 1.56s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+7 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- `detect_all_tools()` remains serial for stability and emits one `detect:result` event per finished tool.
+- `ccswitch` uses path probing only in V0.2 and never launches the GUI during automatic detection.
+- `claude` / `codex` / `opencode` treat auth-related non-zero exits as installed or path-missing, not broken.
+- Removed the `D:\nodejs\node.exe` personal-path fallback from the Node detector so the common rule stays Windows-generic.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not claim completion without command output.
+  - Do not let mock UI masquerade as real detection.
+  - Do not drift into install behavior during V0.2.
+  - Do not weaken PRD constraints just to simplify implementation.
+- Self-check result:
+  - Skipped validation: no
+  - Used mock instead of real detection: no
+  - Drifted outside V0.2 scope: no
+  - Introduced blocking install invoke: no
+  - Saved/read/uploaded API key: no
+  - Took over system proxy: no
+  - Read/wrote ccSwitch database directly: no
+  - Added one-click install: no
+  - Added automatic outdated judgment: no
+  - Removed core PRD constraints: no

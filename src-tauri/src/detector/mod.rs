@@ -1,11 +1,16 @@
+mod ccswitch;
+mod claude;
+mod codex;
 mod git;
 mod node;
 mod npm_global;
+mod opencode;
 mod python;
 mod shared;
 mod winget;
 
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -53,6 +58,13 @@ pub struct ToolStatus {
     pub last_checked_at: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DetectResultEvent {
+    pub tool_id: String,
+    pub result: ToolStatus,
+}
+
 const ALL_TOOL_IDS: [&str; 9] = [
     "winget",
     "git",
@@ -75,17 +87,10 @@ pub async fn detect_tool(
         "node" => node::detect_node(),
         "npm" => detect_npm(),
         "python" => python::detect(),
-        "claude" | "codex" | "opencode" | "ccswitch" => shared::build_tool_status(
-            tool_id,
-            tool_id,
-            ToolCategory::Ai,
-            ToolInstallStatus::DetectFailed,
-            None,
-            None,
-            DetectionMethod::Combined,
-            Some("V0.2 phase 2: AI detector not implemented yet".to_string()),
-            None,
-        ),
+        "claude" => claude::detect(),
+        "codex" => codex::detect(),
+        "opencode" => opencode::detect(),
+        "ccswitch" => ccswitch::detect(),
         _ => {
             return Err(format!("unsupported tool id: {tool_id}"));
         }
@@ -97,7 +102,16 @@ pub async fn detect_tool(
 pub async fn detect_all_tools(app: tauri::AppHandle) -> Result<Vec<ToolStatus>, String> {
     let mut results = Vec::with_capacity(ALL_TOOL_IDS.len());
     for tool_id in ALL_TOOL_IDS {
-        results.push(detect_tool(app.clone(), tool_id).await?);
+        let result = detect_tool(app.clone(), tool_id).await?;
+        app.emit(
+            "detect:result",
+            DetectResultEvent {
+                tool_id: tool_id.to_string(),
+                result: result.clone(),
+            },
+        )
+        .map_err(|error| error.to_string())?;
+        results.push(result);
     }
     Ok(results)
 }
@@ -114,7 +128,7 @@ fn detect_npm() -> ToolStatus {
                 None,
                 None,
                 DetectionMethod::Combined,
-                Some(format!("{error:?}")),
+                Some(error.to_string()),
                 None,
             )
         }
@@ -134,7 +148,7 @@ fn detect_npm() -> ToolStatus {
                 None,
                 None,
                 DetectionMethod::NpmGlobalProbe,
-                Some(format!("{error:?}")),
+                Some(error.to_string()),
                 None,
             )
         }

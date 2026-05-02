@@ -1,17 +1,21 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { DetectResultEvent } from "../types/events";
 
-type UseDetectEventsOptions = {
-  onResult: (event: DetectResultEvent) => void;
-};
+export function useDetectEvents(
+  onResult: (event: DetectResultEvent) => void,
+): void {
+  const onResultRef = useRef(onResult);
 
-export function useDetectEvents(options: UseDetectEventsOptions): void {
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
+
   useEffect(() => {
     let unlisten: UnlistenFn | null = null;
 
     void listen<DetectResultEvent>("detect:result", (event) => {
-      options.onResult(event.payload);
+      onResultRef.current(event.payload);
     }).then((dispose) => {
       unlisten = dispose;
     });
@@ -21,5 +25,5 @@ export function useDetectEvents(options: UseDetectEventsOptions): void {
         void unlisten();
       }
     };
-  }, [options]);
+  }, []);
 }
