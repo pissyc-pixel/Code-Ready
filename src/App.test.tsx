@@ -35,6 +35,7 @@ let detectResultHandler:
 let installStatusHandler:
   | ((event: Event<InstallStatusEvent>) => void)
   | null = null;
+let installProgressSubscribed = false;
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: (eventName: string, handler: (event: Event<unknown>) => void) => {
@@ -45,6 +46,9 @@ vi.mock("@tauri-apps/api/event", () => ({
     if (eventName === "install:status") {
       installStatusHandler = handler as (event: Event<InstallStatusEvent>) => void;
     }
+    if (eventName === "install:progress") {
+      installProgressSubscribed = true;
+    }
     return Promise.resolve(() => Promise.resolve());
   },
 }));
@@ -53,6 +57,7 @@ import App from "./App";
 
 describe("App", () => {
   beforeEach(() => {
+    installProgressSubscribed = false;
     getConfigMock.mockResolvedValue({
       installNetwork: {
         mode: "none",
@@ -82,6 +87,7 @@ describe("App", () => {
       expect(detectAllToolsMock).toHaveBeenCalledTimes(1);
       expect(listenMock).toHaveBeenCalledWith("detect:result");
       expect(listenMock).toHaveBeenCalledWith("install:status");
+      expect(installProgressSubscribed).toBe(true);
       expect(getConfigMock).toHaveBeenCalledTimes(1);
       expect(isAdminMock).toHaveBeenCalledTimes(1);
     });
@@ -191,6 +197,78 @@ describe("App", () => {
       expect(
         screen.getByRole("button", { name: "以管理员身份重启" }),
       ).toBeInTheDocument();
+    });
+  });
+
+  it("releases the install lock after a cancelled status event", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      {
+        id: "git",
+        name: "Git / Git Bash",
+        category: "base",
+        status: "missing",
+        version: undefined,
+        executablePath: undefined,
+        detectionMethod: "combined",
+        lastCheckedAt: "2026-05-02T17:10:00+08:00",
+      },
+      {
+        id: "python",
+        name: "Python 3.11",
+        category: "base",
+        status: "missing",
+        version: undefined,
+        executablePath: undefined,
+        detectionMethod: "combined",
+        lastCheckedAt: "2026-05-02T17:10:00+08:00",
+      },
+    ]);
+    installToolMock.mockResolvedValue(undefined);
+    cancelInstallMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    const installButtons = await screen.findAllByRole("button", { name: "安装" });
+    fireEvent.click(installButtons[0]);
+
+    await act(async () => {
+      installStatusHandler?.({
+        event: "install:status",
+        id: 3,
+        payload: {
+          toolId: "git",
+          status: "installing",
+          phase: "started",
+          timestamp: "2026-05-02T17:11:00+08:00",
+        },
+        windowLabel: "main",
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "取消安装" }));
+
+    await waitFor(() => {
+      expect(cancelInstallMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      installStatusHandler?.({
+        event: "install:status",
+        id: 4,
+        payload: {
+          toolId: "git",
+          status: "missing",
+          phase: "cancelled",
+          timestamp: "2026-05-02T17:11:05+08:00",
+        },
+        windowLabel: "main",
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "取消安装" })).not.toBeInTheDocument();
+      const nextInstallButtons = screen.getAllByRole("button", { name: "安装" });
+      expect(nextInstallButtons[0]).not.toBeDisabled();
     });
   });
 });

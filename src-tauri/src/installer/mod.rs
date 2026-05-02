@@ -1,9 +1,11 @@
+pub mod runner;
+
 use serde::Serialize;
 
 use crate::detector::ToolInstallStatus;
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InstallPhase {
     Started,
@@ -50,6 +52,14 @@ pub struct InstallStatusEvent {
 #[derive(Debug, Clone)]
 pub struct InstallTaskState {
     pub tool_id: String,
+    pub pid: Option<u32>,
+    pub phase: InstallPhase,
+    pub started_at: String,
+    pub cancel_requested: bool,
+}
+
+pub fn now_timestamp() -> String {
+    chrono::Local::now().to_rfc3339()
 }
 
 #[cfg(test)]

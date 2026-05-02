@@ -453,3 +453,175 @@ Summary:
   - Introduced blocking install invoke: no
   - Modified system proxy: no
   - Executed `npm config set registry`: no
+
+# V0.3 Commit 3 Validation
+
+## Time
+
+2026-05-02 23:58 (Asia/Shanghai)
+
+## Scope
+
+- Added a real background install runner skeleton that spawns a child process and returns from `install_tool()` immediately.
+- Added install task PID tracking, cancel intent tracking, and lock release helpers in shared app state.
+- Added Windows process tree kill helpers using `taskkill /F /T /PID`.
+- Added line-by-line stdout/stderr redaction before progress emit and log writing.
+- Added a controllable test installer path for architecture verification only.
+- Kept V0.3 commit 3 strictly out of real Git / Node / Python installers.
+
+## Difficulty Handling Record
+
+### Current stage
+
+V0.3 commit 3 verification
+
+### Current task
+
+Run the full acceptance commands for background install runner, lock, cancel, and redaction changes.
+
+### Failed commands
+
+- `npx vitest run src/App.test.tsx --reporter=verbose`
+- `npm run build`
+
+### Error summary
+
+- Both commands timed out when I tried to run them in parallel with Cargo commands.
+- Rust output showed `Blocking waiting for file lock on ...`, so the failure was command scheduling noise, not an implementation regression.
+
+### superpower
+
+- Available: no
+- Note: `superpower 不可用。已改为 findskills + 仓库文档 + 保守实现方案。`
+
+### findskills
+
+- Available: yes
+- Queries used:
+  - `windows process tree`
+  - `tauri event logging redaction`
+- Relevant skills found:
+  - `understanding-tauri-process-model`
+  - `process-management`
+  - `tauri-event-system`
+  - `pii-redaction-logging-policy-builder`
+- Adopted guidance:
+  - avoid parallel commands that compete for build/package locks
+  - keep PID tracking explicit
+  - keep event flow and redaction order explicit
+
+### pua reminders adopted
+
+- Do not treat a file-lock timeout as proof the feature is broken.
+- Do not skip re-running the same acceptance commands serially.
+- Do not let command orchestration noise blur the plan-vs-implementation judgment.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 4 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 806ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 0.81s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+20 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- `install_tool()` now remains non-blocking and only starts a background task.
+- `cancel_install()` now uses Windows process tree kill semantics and treats “process already exited” as a cleanup path, not a hard failure.
+- Redaction happens in Rust before `install:progress` emit and before log write.
+- The runner currently supports controlled test commands only; real Git / Node / Python installers are intentionally deferred to commit 4.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not pretend test commands are real base dependency installers.
+  - Do not block the Tauri invoke while the child process is running.
+  - Do not skip the process tree requirement just because the child is only a validation runner.
+  - Do not send raw sensitive output to the frontend or logs.
+- Self-check result:
+  - Skipped validation: no
+  - Drifted outside commit 3 scope: no
+  - Added real Git / Node / Python installers: no
+  - Introduced blocking install invoke: no
+  - Modified system proxy: no
+  - Executed `npm config set registry`: no
+  - Added one-click install: no
+  - Stored/read/uploaded API keys: no
+
+## TODO
+
+- Commit 4 will replace the controlled test runner with real Git / Node / Python installers.
+- Commit 4 will trigger post-install detection for the relevant tools.

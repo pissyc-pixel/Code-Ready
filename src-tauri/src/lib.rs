@@ -2,7 +2,9 @@ mod commands;
 mod config;
 mod detector;
 mod installer;
+mod logger;
 mod network;
+mod process;
 mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

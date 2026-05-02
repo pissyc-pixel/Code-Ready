@@ -154,11 +154,31 @@ function App() {
   }
 
   async function runInstall(toolId: ToolId) {
-    await installTool(toolId);
+    try {
+      await installTool(toolId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.id === toolId ? { ...row, errorMessage: message } : row,
+        ),
+      );
+    }
   }
 
   async function runCancelInstall() {
-    await cancelInstall();
+    try {
+      await cancelInstall();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.id === installState.activeToolId
+            ? { ...row, errorMessage: message }
+            : row,
+        ),
+      );
+    }
   }
 
   async function runRestartAsAdmin() {
