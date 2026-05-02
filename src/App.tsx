@@ -7,9 +7,14 @@ import {
   cancelInstall,
   detectAllTools,
   detectTool,
+  getConfig,
   installTool,
+  isAdmin,
+  restartAsAdmin,
 } from "./lib/api";
 import { statusMeta } from "./lib/toolStatus";
+import type { AppConfig } from "./types/config";
+import { defaultAppConfig } from "./types/config";
 import type {
   InstallStatusEvent,
   InstallTaskViewState,
@@ -27,6 +32,14 @@ function App() {
   const [installState, setInstallState] = useState<InstallTaskViewState>({
     isInstalling: false,
   });
+  const [config, setConfig] = useState<AppConfig>(defaultAppConfig);
+  const [adminState, setAdminState] = useState<{
+    checked: boolean;
+    isAdmin: boolean;
+  }>({
+    checked: false,
+    isAdmin: false,
+  });
 
   useDetectEvents((event) => {
     applyResult(event.result);
@@ -38,6 +51,8 @@ function App() {
 
   useEffect(() => {
     void runDetectAll();
+    void loadConfig();
+    void loadPrivilege();
   }, []);
 
   const groupedRows = useMemo(
@@ -92,6 +107,19 @@ function App() {
     });
   }
 
+  async function loadConfig() {
+    const nextConfig = await getConfig();
+    setConfig(nextConfig);
+  }
+
+  async function loadPrivilege() {
+    const nextIsAdmin = await isAdmin();
+    setAdminState({
+      checked: true,
+      isAdmin: nextIsAdmin,
+    });
+  }
+
   async function runDetectAll() {
     setIsDetectingAll(true);
     setRows((currentRows) =>
@@ -133,14 +161,18 @@ function App() {
     await cancelInstall();
   }
 
+  async function runRestartAsAdmin() {
+    await restartAsAdmin();
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
         <div>
-          <p className="eyebrow">Windows First · V0.3 Install Event Skeleton</p>
+          <p className="eyebrow">Windows First · V0.3 Network And Privilege</p>
           <h1>AI Coding 环境助手</h1>
           <p className="hero-copy">
-            这一步只接入安装状态、事件和互斥按钮，不启动真实安装器。
+            当前阶段补上安装网络配置与权限提示，不启动真实安装器。
           </p>
         </div>
         <button
@@ -152,10 +184,24 @@ function App() {
         </button>
       </header>
 
+      {!adminState.isAdmin && adminState.checked ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>权限提示</h2>
+            <p>当前不是管理员，安装时可能触发 UAC。</p>
+          </div>
+          <div className="quick-actions">
+            <button type="button" onClick={() => void runRestartAsAdmin()}>
+              以管理员身份重启
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       <section className="panel">
         <div className="panel-header">
           <h2>基础环境</h2>
-          <p>第一步只接线安装事件骨架，Git / Node / Python 后续再接真实安装器。</p>
+          <p>这一步先接入网络设置与权限提示，真实 Git / Node / Python 安装器后续再接。</p>
         </div>
         <ToolTable
           rows={groupedRows.base}
@@ -183,16 +229,20 @@ function App() {
       <section className="panel split-panel">
         <div className="panel-header">
           <h2>安装网络</h2>
-          <p>网络设置入口保留，完整 AppConfig 和代理策略会在下一个 commit 接入。</p>
+          <p>配置会写入 AppConfig；npm 镜像后续只通过单次命令参数使用。</p>
         </div>
         <div className="network-card">
           <div className="network-stat">
             <span>当前模式</span>
-            <strong>不使用代理</strong>
+            <strong>{config.installNetwork.mode}</strong>
           </div>
           <div className="network-stat">
             <span>npm registry</span>
-            <strong>default</strong>
+            <strong>
+              {config.installNetwork.npmRegistry === "custom"
+                ? config.installNetwork.customNpmRegistry ?? "custom"
+                : config.installNetwork.npmRegistry}
+            </strong>
           </div>
           <p className="network-warning">
             注意：winget 不保证读取本客户端的临时代理设置。

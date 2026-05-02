@@ -2,6 +2,7 @@
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Event } from "@tauri-apps/api/event";
+import type { AppConfig } from "./types/config";
 import type { DetectResultEvent, InstallStatusEvent } from "./types/events";
 import type { ToolStatus } from "./types/tool";
 
@@ -9,6 +10,11 @@ const detectAllToolsMock = vi.fn<() => Promise<ToolStatus[]>>();
 const detectToolMock = vi.fn();
 const installToolMock = vi.fn<() => Promise<void>>();
 const cancelInstallMock = vi.fn<() => Promise<void>>();
+const getConfigMock = vi.fn<() => Promise<AppConfig>>();
+const updateConfigMock = vi.fn();
+const resetConfigMock = vi.fn();
+const isAdminMock = vi.fn<() => Promise<boolean>>();
+const restartAsAdminMock = vi.fn<() => Promise<void>>();
 const listenMock = vi.fn();
 
 vi.mock("./lib/api", () => ({
@@ -16,6 +22,11 @@ vi.mock("./lib/api", () => ({
   detectTool: (...args: unknown[]) => detectToolMock(...args),
   installTool: (...args: unknown[]) => installToolMock(...args),
   cancelInstall: (...args: unknown[]) => cancelInstallMock(...args),
+  getConfig: () => getConfigMock(),
+  updateConfig: (...args: unknown[]) => updateConfigMock(...args),
+  resetConfig: () => resetConfigMock(),
+  isAdmin: () => isAdminMock(),
+  restartAsAdmin: () => restartAsAdminMock(),
 }));
 
 let detectResultHandler:
@@ -41,6 +52,16 @@ vi.mock("@tauri-apps/api/event", () => ({
 import App from "./App";
 
 describe("App", () => {
+  beforeEach(() => {
+    getConfigMock.mockResolvedValue({
+      installNetwork: {
+        mode: "none",
+        npmRegistry: "default",
+      },
+    });
+    isAdminMock.mockResolvedValue(true);
+  });
+
   it("starts detect_all_tools on mount and applies detect:result updates", async () => {
     detectAllToolsMock.mockResolvedValue([
       {
@@ -61,6 +82,8 @@ describe("App", () => {
       expect(detectAllToolsMock).toHaveBeenCalledTimes(1);
       expect(listenMock).toHaveBeenCalledWith("detect:result");
       expect(listenMock).toHaveBeenCalledWith("install:status");
+      expect(getConfigMock).toHaveBeenCalledTimes(1);
+      expect(isAdminMock).toHaveBeenCalledTimes(1);
     });
 
     await act(async () => {
@@ -144,5 +167,30 @@ describe("App", () => {
 
     const disabledInstallButtons = screen.getAllByRole("button", { name: "安装" });
     expect(disabledInstallButtons[0]).toBeDisabled();
+  });
+
+  it("loads install network config and shows non-admin hint", async () => {
+    isAdminMock.mockResolvedValue(false);
+    getConfigMock.mockResolvedValue({
+      installNetwork: {
+        mode: "manual_proxy",
+        proxyUrl: "http://127.0.0.1:7890",
+        npmRegistry: "npmmirror",
+      },
+    });
+    detectAllToolsMock.mockResolvedValue([]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("manual_proxy")).toBeInTheDocument();
+      expect(screen.getByText("npmmirror")).toBeInTheDocument();
+      expect(
+        screen.getByText("当前不是管理员，安装时可能触发 UAC。"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "以管理员身份重启" }),
+      ).toBeInTheDocument();
+    });
   });
 });

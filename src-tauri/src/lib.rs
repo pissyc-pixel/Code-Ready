@@ -1,6 +1,8 @@
 mod commands;
+mod config;
 mod detector;
 mod installer;
+mod network;
 mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -9,10 +11,15 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(state::AppState::default())
         .invoke_handler(tauri::generate_handler![
+            commands::config::get_config,
+            commands::config::update_config,
+            commands::config::reset_config,
             commands::detect::detect_tool,
             commands::detect::detect_all_tools,
             commands::install::install_tool,
-            commands::install::cancel_install
+            commands::install::cancel_install,
+            commands::privilege::is_admin,
+            commands::privilege::restart_as_admin
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

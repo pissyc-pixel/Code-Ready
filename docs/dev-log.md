@@ -337,3 +337,119 @@ Summary:
   - Used fake production installer flow: no
   - Modified system proxy or npm global config: no
   - Added real Git/Node/Python installer execution: no
+
+# V0.3 Commit 2 Validation
+
+## Time
+
+2026-05-02 17:31 (Asia/Shanghai)
+
+## Scope
+
+- Added `get_config()` / `update_config(patch)` / `reset_config()` with PRD-aligned naming.
+- Added `is_admin()` real detection and `restart_as_admin()` basic entry command.
+- Added frontend config/privilege wiring and displayed install network mode, npm registry, and non-admin hint.
+- Added npm single-use registry helper without touching global npm config.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 3 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 719ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 1.64s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+14 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- Config command names now follow the PRD exactly: `get_config`, `update_config`, `reset_config`.
+- `restart_as_admin()` is implemented as a best-effort PowerShell `Start-Process -Verb RunAs` entry and is allowed to return a clear error if the relaunch request fails.
+- npm registry support is currently helper-only and stays single-use; no `npm config set registry`.
+- AppConfig is stored at `%APPDATA%\ai-coding-installer\config.json` and keeps V0.3 free of unused `pipIndexMode`.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not introduce a second config API naming scheme.
+  - Do not let `restart_as_admin()` derail the mainline if Windows relaunch details are brittle.
+  - Do not mutate system proxy or global npm config for convenience.
+  - Do not skip real command validation just because this is still a skeleton stage.
+- Self-check result:
+  - Skipped validation: no
+  - Drifted outside commit 2 scope: no
+  - Added real installer execution: no
+  - Introduced blocking install invoke: no
+  - Modified system proxy: no
+  - Executed `npm config set registry`: no
