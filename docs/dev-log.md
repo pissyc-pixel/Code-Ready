@@ -222,3 +222,118 @@ Summary:
   - Added one-click install: no
   - Added automatic outdated judgment: no
   - Removed core PRD constraints: no
+
+# V0.3 Commit 1 Validation
+
+## Time
+
+2026-05-02 17:10 (Asia/Shanghai)
+
+## Scope
+
+- Added install task/event types on the frontend and Rust backend.
+- Added `install_tool` / `cancel_install` Tauri command skeletons that return immediately.
+- Added `useInstallEvents` and basic App wiring for install status and lock-state UI.
+- Kept V0.3 commit 1 strictly skeleton-only: no real Git/Node/Python installers, no config commands, no privilege flow.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 2 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+37 modules transformed
+dist/ artifacts generated
+built in 686ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 0.48s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+8 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- `install_tool(toolId)` currently only reserves the install slot and returns `Result<(), String>`.
+- `cancel_install()` currently only clears the slot and returns immediately; real process tree kill comes in commit 3.
+- Install event types were added without simulating a fake installer in production code.
+- Frontend now understands install lock-state and can disable other install buttons when one task enters `started/running`.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not skip real command validation even for skeleton commits.
+  - Do not fake a long-running installer just to make the UI look complete.
+  - Do not drift into config, privilege, or real installer work before the correct commit.
+- Self-check result:
+  - Skipped validation: no
+  - Turned install into blocking invoke: no
+  - Drifted outside commit 1 scope: no
+  - Used fake production installer flow: no
+  - Modified system proxy or npm global config: no
+  - Added real Git/Node/Python installer execution: no
