@@ -11,8 +11,10 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::{
+    config::AppConfig,
     detector::ToolInstallStatus,
-    installer::{
+    detector::{self, DetectResultEvent},
+    installer::{git, node, python, 
         now_timestamp, InstallPhase, InstallProgressEvent, InstallResult, InstallStatusEvent,
     },
     logger::redact::redact_line,
@@ -25,10 +27,17 @@ pub struct InstallCommandSpec {
     pub program: String,
     pub args: Vec<String>,
     pub timeout: Duration,
+    pub started_suggestion: Option<String>,
+    pub success_suggestion: Option<String>,
+    pub failure_suggestion: Option<String>,
+    pub detect_after: Vec<String>,
 }
 
-pub fn build_command_spec(tool_id: &str) -> Result<InstallCommandSpec, String> {
+pub fn build_command_spec(tool_id: &str, config: &AppConfig) -> Result<InstallCommandSpec, String> {
     match tool_id {
+        "git" => Ok(git::command_spec(config)),
+        "node" => Ok(node::command_spec(config)),
+        "python" => Ok(python::command_spec(config)),
         "__test_success__" => Ok(InstallCommandSpec {
             program: "powershell".to_string(),
             args: vec![
@@ -37,6 +46,13 @@ pub fn build_command_spec(tool_id: &str) -> Result<InstallCommandSpec, String> {
                 "Write-Output 'token=abc123'; Start-Sleep -Milliseconds 100; Write-Output 'Authorization: Bearer secret-token'; Start-Sleep -Milliseconds 100".to_string(),
             ],
             timeout: Duration::from_secs(10),
+            started_suggestion: None,
+            success_suggestion: Some(
+                "V0.3 commit 3 宸插畬鎴愬悗鍙板畨瑁呴摼璺獙璇侊紝鐪熷疄瀹夎鍣ㄥ皢鍦ㄤ笅涓€涓彁浜や腑鎺ュ叆銆?"
+                    .to_string(),
+            ),
+            failure_suggestion: None,
+            detect_after: Vec::new(),
         }),
         "__test_timeout__" => Ok(InstallCommandSpec {
             program: "powershell".to_string(),
@@ -46,6 +62,10 @@ pub fn build_command_spec(tool_id: &str) -> Result<InstallCommandSpec, String> {
                 "Start-Sleep -Seconds 3".to_string(),
             ],
             timeout: Duration::from_millis(500),
+            started_suggestion: None,
+            success_suggestion: None,
+            failure_suggestion: Some("install task timed out".to_string()),
+            detect_after: Vec::new(),
         }),
         "__test_cancel__" => Ok(InstallCommandSpec {
             program: "powershell".to_string(),
@@ -55,9 +75,13 @@ pub fn build_command_spec(tool_id: &str) -> Result<InstallCommandSpec, String> {
                 "1..20 | ForEach-Object { Write-Output \"line=$_\"; Start-Sleep -Milliseconds 200 }".to_string(),
             ],
             timeout: Duration::from_secs(10),
+            started_suggestion: None,
+            success_suggestion: None,
+            failure_suggestion: None,
+            detect_after: Vec::new(),
         }),
         _ => Err(format!(
-            "installer for {tool_id} is not available in V0.3 commit 3; real installers land in commit 4"
+            "installer for {tool_id} is not available in the current version"
         )),
     }
 }
@@ -103,7 +127,7 @@ fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -
             status: ToolInstallStatus::Installing,
             phase: InstallPhase::Started,
             error_message: None,
-            suggestion: None,
+            suggestion: spec.started_suggestion.clone(),
             result: None,
             timestamp: now_timestamp(),
         },
@@ -171,7 +195,7 @@ fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -
             status: ToolInstallStatus::InstallFailed,
             phase: InstallPhase::Timeout,
             error_message: Some("install task timed out".to_string()),
-            suggestion: None,
+            suggestion: spec.failure_suggestion.clone(),
             result: Some(InstallResult {
                 exit_code,
                 duration_ms: Some(duration_ms),
@@ -197,10 +221,7 @@ fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -
             status: ToolInstallStatus::Installed,
             phase: InstallPhase::Success,
             error_message: None,
-            suggestion: Some(
-                "V0.3 commit 3 宸插畬鎴愬悗鍙板畨瑁呴摼璺獙璇侊紝鐪熷疄瀹夎鍣ㄥ皢鍦ㄤ笅涓€涓彁浜や腑鎺ュ叆銆?"
-                    .to_string(),
-            ),
+            suggestion: spec.success_suggestion.clone(),
             result: Some(InstallResult {
                 exit_code,
                 duration_ms: Some(duration_ms),
@@ -213,7 +234,7 @@ fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -
             status: ToolInstallStatus::InstallFailed,
             phase: InstallPhase::Failed,
             error_message: Some("install task exited with a non-zero code".to_string()),
-            suggestion: None,
+            suggestion: spec.failure_suggestion.clone(),
             result: Some(InstallResult {
                 exit_code,
                 duration_ms: Some(duration_ms),
@@ -224,6 +245,9 @@ fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -
 
     state.clear_install(&tool_id)?;
     emit_status(&app, final_event)?;
+    if exit_code == Some(0) && !timed_out && !cancel_effective {
+        emit_detection_results(&app, &spec.detect_after)?;
+    }
     Ok(())
 }
 
@@ -300,13 +324,31 @@ fn log_path(tool_id: &str) -> Result<PathBuf, String> {
         )))
 }
 
+fn emit_detection_results(app: &AppHandle, tool_ids: &[String]) -> Result<(), String> {
+    for tool_id in tool_ids {
+        let result = tauri::async_runtime::block_on(detector::detect_tool(app.clone(), tool_id))?;
+        app.emit(
+            "detect:result",
+            DetectResultEvent {
+                tool_id: tool_id.clone(),
+                result,
+            },
+        )
+        .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_command_spec;
+    use crate::config::AppConfig;
 
     #[test]
     fn supports_test_runner_specs() {
-        let spec = build_command_spec("__test_success__").expect("support test command");
+        let spec = build_command_spec("__test_success__", &AppConfig::default())
+            .expect("support test command");
         assert_eq!(spec.program, "powershell");
         assert!(!spec.args.is_empty());
     }

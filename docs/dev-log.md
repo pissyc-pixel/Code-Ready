@@ -469,6 +469,10 @@ Summary:
 - Added a controllable test installer path for architecture verification only.
 - Kept V0.3 commit 3 strictly out of real Git / Node / Python installers.
 
+## Commit
+
+- commit hash: `5a26fb5`
+
 ## Difficulty Handling Record
 
 ### Current stage
@@ -625,3 +629,174 @@ Summary:
 
 - Commit 4 will replace the controlled test runner with real Git / Node / Python installers.
 - Commit 4 will trigger post-install detection for the relevant tools.
+
+# V0.3 Commit 4 Validation
+
+## Time
+
+2026-05-03 00:15 (Asia/Shanghai)
+
+## Scope
+
+- Replaced the commit 3 test-only install command mapping with real installer mappings for Git for Windows, Node.js LTS, and Python 3.11.
+- Kept `install_tool()` non-blocking and reused the existing background runner, event chain, lock, cancellation, and redaction flow.
+- Added manual-proxy winget warning suggestions to the installer start event.
+- Added post-install re-detection targets for `git`, `node`, `npm`, and `python`.
+- Kept V0.3 commit 4 strictly out of Claude / Codex / OpenCode / ccSwitch installation work.
+
+## Difficulty Handling Record
+
+### Current stage
+
+V0.3 commit 4 verification
+
+### Current task
+
+Run the frontend acceptance commands after wiring real base dependency installers.
+
+### Failed commands
+
+- `npm run build` while run in parallel with `vitest`
+- `npm run build` after several previous timed-out build attempts left background `node` processes alive
+
+### Error summary
+
+- `npx tsc --noEmit` passed, so TypeScript compilation itself was healthy.
+- `vite build` timed out because old `npm/vite/vitest` child processes were still running in the background after earlier timeout-based interruptions.
+- This was execution noise, not a code-level regression in the new installers.
+
+### superpower
+
+- Available: no
+- Note: `superpower 不可用。已改为 findskills + 仓库文档 + 保守排查路径。`
+
+### findskills
+
+- Available: yes
+- Queries used:
+  - `winget windows install runner`
+  - `tauri uac windows privilege`
+  - `vite build timeout windows`
+- Relevant skills found:
+  - `process-management`
+  - `understanding-tauri-process-model`
+  - `tauri-event-system`
+  - `vite`
+- Adopted guidance:
+  - isolate the hanging command from the rest of the build chain
+  - inspect process state before blaming application code
+  - clear only the repository-related residual `node` build processes
+
+### pua reminders adopted
+
+- Do not misdiagnose a stuck build process as a product-code failure.
+- Do not keep retrying the same command without shrinking the problem.
+- Do not skip rerunning the acceptance commands after cleaning residual processes.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 4 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 757ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 10.15s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+26 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- Real base dependency installers now use `winget install` for:
+  - `Git.Git`
+  - `OpenJS.NodeJS.LTS`
+  - `Python.Python.3.11`
+- `install_tool()` still returns immediately and only starts the background task.
+- Manual-proxy mode now adds the required winget limitation warning as an install-start suggestion instead of trying to mutate system proxy state.
+- Successful installs now trigger backend re-detection for the relevant tools instead of making the frontend guess the new state.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not drift into AI-tool installers or one-click install.
+  - Do not turn real installers back into blocking invoke calls.
+  - Do not “solve” proxy friction by writing system proxy or global npm config.
+  - Do not forget post-install re-detection.
+- Self-check result:
+  - Skipped validation: no
+  - Drifted outside commit 4 scope: no
+  - Added Claude / Codex / OpenCode / ccSwitch installers: no
+  - Introduced blocking install invoke: no
+  - Modified system proxy: no
+  - Executed `npm config set registry`: no
+  - Added one-click install: no
+  - Modified system PATH automatically: no

@@ -1,6 +1,7 @@
 use tauri::State;
 
 use crate::{
+    config,
     installer::{now_timestamp, runner, InstallPhase, InstallTaskState},
     process::kill_tree::{kill_process_tree, KillTreeOutcome},
     state::AppState,
@@ -12,7 +13,8 @@ pub async fn install_tool(
     state: State<'_, AppState>,
     tool_id: String,
 ) -> Result<(), String> {
-    let spec = runner::build_command_spec(&tool_id)?;
+    let config = config::get_config()?;
+    let spec = runner::build_command_spec(&tool_id, &config)?;
     state.reserve_install(InstallTaskState {
         tool_id: tool_id.clone(),
         pid: None,
