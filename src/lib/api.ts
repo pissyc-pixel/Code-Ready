@@ -30,6 +30,10 @@ export async function resetConfig(): Promise<AppConfig> {
   return invoke<AppConfig>("reset_config");
 }
 
+export async function openCcSwitch(): Promise<void> {
+  return invoke<void>("open_ccswitch");
+}
+
 export async function isAdmin(): Promise<boolean> {
   return invoke<boolean>("is_admin");
 }

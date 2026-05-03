@@ -10,7 +10,9 @@ import {
   getConfig,
   installTool,
   isAdmin,
+  openCcSwitch,
   restartAsAdmin,
+  updateConfig,
 } from "./lib/api";
 import { statusMeta } from "./lib/toolStatus";
 import type { AppConfig } from "./types/config";
@@ -40,6 +42,7 @@ function App() {
     isInstalling: false,
   });
   const [config, setConfig] = useState<AppConfig>(defaultAppConfig);
+  const [ccswitchPathInput, setCcswitchPathInput] = useState("");
   const [adminState, setAdminState] = useState<{
     checked: boolean;
     isAdmin: boolean;
@@ -69,6 +72,7 @@ function App() {
     }),
     [rows],
   );
+  const ccswitchRow = rows.find((row) => row.id === "ccswitch");
 
   function applyResult(result: ToolStatus) {
     setRows((currentRows) =>
@@ -117,6 +121,7 @@ function App() {
   async function loadConfig() {
     const nextConfig = await getConfig();
     setConfig(nextConfig);
+    setCcswitchPathInput(nextConfig.ccswitchPath ?? "");
   }
 
   async function loadPrivilege() {
@@ -192,6 +197,34 @@ function App() {
     await restartAsAdmin();
   }
 
+  async function saveCcSwitchPath() {
+    const nextConfig = await updateConfig({
+      ccswitchPath: ccswitchPathInput,
+    });
+    setConfig(nextConfig);
+    setCcswitchPathInput(nextConfig.ccswitchPath ?? "");
+    const result = await detectTool("ccswitch");
+    applyResult(result);
+  }
+
+  async function runOpenCcSwitch() {
+    try {
+      await openCcSwitch();
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.id === "ccswitch" ? { ...row, errorMessage: undefined } : row,
+        ),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.id === "ccswitch" ? { ...row, errorMessage: message } : row,
+        ),
+      );
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
@@ -251,6 +284,48 @@ function App() {
           onCancelInstall={runCancelInstall}
           installState={installState}
         />
+      </section>
+
+      <section className="panel split-panel">
+        <div className="panel-header">
+          <h2>ccSwitch Path</h2>
+          <p>
+            Save a manual ccSwitch executable path, then re-detect or open it.
+            Detection still only probes paths and never launches the GUI.
+          </p>
+        </div>
+        <div className="network-card">
+          <label className="network-stat" htmlFor="ccswitch-path-input">
+            <span>ccSwitch executable</span>
+            <input
+              id="ccswitch-path-input"
+              type="text"
+              value={ccswitchPathInput}
+              onChange={(event) => setCcswitchPathInput(event.target.value)}
+              placeholder="C:\\Program Files\\ccswitch\\ccswitch.exe"
+            />
+          </label>
+          <div className="action-group">
+            <button type="button" onClick={() => void saveCcSwitchPath()}>
+              Save ccSwitch path
+            </button>
+            <button
+              type="button"
+              onClick={() => void runOpenCcSwitch()}
+              disabled={!ccswitchRow?.executablePath}
+              title={
+                ccswitchRow?.executablePath
+                  ? ccswitchRow.executablePath
+                  : "Save a valid ccSwitch path or install it first."
+              }
+            >
+              Open ccSwitch
+            </button>
+            <button type="button" onClick={() => void runDetectOne("ccswitch")}>
+              Re-detect ccSwitch
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="panel split-panel">

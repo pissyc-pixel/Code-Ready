@@ -16,6 +16,7 @@ pub fn run() {
             commands::config::get_config,
             commands::config::update_config,
             commands::config::reset_config,
+            commands::ccswitch::open_ccswitch,
             commands::detect::detect_tool,
             commands::detect::detect_all_tools,
             commands::install::install_tool,

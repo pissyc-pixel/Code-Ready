@@ -1,3 +1,4 @@
+pub mod ccswitch;
 pub mod config;
 pub mod detect;
 pub mod install;

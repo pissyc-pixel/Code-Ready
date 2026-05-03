@@ -11,10 +11,12 @@ export type InstallNetworkConfig = {
 
 export type AppConfig = {
   installNetwork: InstallNetworkConfig;
+  ccswitchPath?: string;
 };
 
 export type AppConfigPatch = {
   installNetwork?: Partial<InstallNetworkConfig>;
+  ccswitchPath?: string;
 };
 
 export const defaultAppConfig: AppConfig = {

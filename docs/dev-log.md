@@ -221,6 +221,183 @@ Summary:
   - Read/wrote ccSwitch database directly: no
 - Added one-click install: no
 
+# V0.4 Commit 3 Validation
+
+## Commit Goal
+
+- Commit target: `feat: add ccswitch path and launch support`
+- Scope:
+  - add `ccswitchPath` to AppConfig
+  - prefer configured path in `ccSwitch` detection
+  - add `open_ccswitch`
+  - add frontend path save / re-detect / open UI
+- Not included:
+  - ccSwitch download
+  - download sources
+  - database writes
+  - Provider writes
+  - subscription parsing
+
+## Difficulty Handling Record
+
+### Current phase
+
+- V0.4 Commit 3 implementation and acceptance
+
+### Current task
+
+- Add manual ccSwitch path persistence and open support without turning detection into GUI launch or drifting into download logic
+
+### Failed commands
+
+```powershell
+cargo check --manifest-path src-tauri/Cargo.toml
+npx vitest run src/App.test.tsx --reporter=verbose
+npm run build
+```
+
+### Error summary
+
+- `cargo check` initially failed because `commands::ccswitch` tried to import the private detector submodule directly.
+- A later parallel frontend verification pass hit the known `vitest` worker timeout / stale `node.exe` issue and left a hanging `vite build`.
+
+### superpower
+
+- Available: no
+- Record:
+
+```text
+superpower 不可用。
+已改为 findskills + 仓库文档 + 保守实现方案。
+```
+
+### findskills
+
+- Available: yes
+- Queries:
+
+```powershell
+npx skills find "vite vitest windows worker timeout stale node process"
+```
+
+- Relevant results:
+  - `vitest`
+  - `electron-app-dev`
+- Adopted guidance:
+  - keep the Rust fix minimal with a `pub(crate)` wrapper instead of exposing the whole detector module
+  - treat the frontend timeout as execution noise and re-run tests serially after clearing only repository-related `node.exe` processes
+
+### Final fix
+
+- Added a minimal `detector::resolve_ccswitch_path(...)` wrapper for `open_ccswitch`.
+- Kept `ccSwitch` detection path-only and GUI-free.
+- Cleared only `D:\aicoding`-related stale `vite / vitest` node processes.
+- Re-ran frontend verification serially.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 7 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 775ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 2.20s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+43 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- `ccswitchPath` is now stored in the existing AppConfig at `%APPDATA%\ai-coding-installer\config.json`.
+- `ccSwitch` detection now prefers the configured path first, then falls back to common install paths.
+- Detection still never launches the GUI.
+- `open_ccswitch` only runs when the user explicitly clicks the button and only launches an executable path.
+- No `ccSwitch` database access, no Provider writes, and no download-source logic were introduced in this commit.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not confuse manual path save with “ccSwitch installed”.
+  - Do not launch GUI during detection.
+  - Do not drift into download or Provider/database work.
+  - Re-run full acceptance after both the Rust wrapper fix and the frontend worker-timeout cleanup.
+- Self-check result:
+  - Skipped validation: no
+  - Drifted outside commit 3 scope: no
+  - Added download logic: no
+  - Touched database or Provider: no
+  - Launched GUI during detection: no
+  - Added node client logic: no
+
 # V0.4 Commit 2 Validation
 
 ## Commit Goal

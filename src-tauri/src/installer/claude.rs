@@ -92,6 +92,7 @@ mod tests {
                 npm_registry: NpmRegistryOption::Npmmirror,
                 custom_npm_registry: None,
             },
+            ccswitch_path: None,
         },
             false,
         )

@@ -70,6 +70,7 @@ mod tests {
                 npm_registry: NpmRegistryOption::Default,
                 custom_npm_registry: None,
             },
+            ccswitch_path: None,
         });
 
         assert!(spec

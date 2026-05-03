@@ -34,6 +34,7 @@ pub struct InstallNetworkConfig {
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
     pub install_network: InstallNetworkConfig,
+    pub ccswitch_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -49,6 +50,7 @@ pub struct InstallNetworkPatch {
 #[serde(rename_all = "camelCase")]
 pub struct AppConfigPatch {
     pub install_network: Option<InstallNetworkPatch>,
+    pub ccswitch_path: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -60,6 +62,7 @@ impl Default for AppConfig {
                 npm_registry: NpmRegistryOption::Default,
                 custom_npm_registry: None,
             },
+            ccswitch_path: None,
         }
     }
 }
@@ -91,6 +94,14 @@ pub fn update_config(patch: AppConfigPatch) -> Result<AppConfig, String> {
         if let Some(custom_npm_registry) = network_patch.custom_npm_registry {
             config.install_network.custom_npm_registry = Some(custom_npm_registry);
         }
+    }
+    if let Some(ccswitch_path) = patch.ccswitch_path {
+        let trimmed = ccswitch_path.trim();
+        config.ccswitch_path = if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        };
     }
     write_config(&config)?;
     Ok(config)
@@ -127,6 +138,7 @@ mod tests {
         let json = serde_json::to_value(AppConfig::default()).expect("serialize config");
         assert!(json.get("pipIndexMode").is_none());
         assert_eq!(json["installNetwork"]["mode"], "none");
+        assert!(json.get("ccswitchPath").is_some());
     }
 
     #[test]
@@ -139,6 +151,7 @@ mod tests {
                 npm_registry: Some(NpmRegistryOption::Npmmirror),
                 custom_npm_registry: None,
             }),
+            ccswitch_path: Some("C:\\Program Files\\ccswitch\\ccswitch.exe".to_string()),
         };
 
         let mut merged = config;
@@ -153,6 +166,9 @@ mod tests {
                 merged.install_network.npm_registry = npm_registry;
             }
         }
+        if let Some(ccswitch_path) = patch.ccswitch_path {
+            merged.ccswitch_path = Some(ccswitch_path);
+        }
 
         assert!(matches!(
             merged.install_network.mode,
@@ -161,6 +177,10 @@ mod tests {
         assert_eq!(
             merged.install_network.proxy_url.as_deref(),
             Some("http://127.0.0.1:7890")
+        );
+        assert_eq!(
+            merged.ccswitch_path.as_deref(),
+            Some("C:\\Program Files\\ccswitch\\ccswitch.exe")
         );
     }
 

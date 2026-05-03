@@ -14,6 +14,7 @@ const getConfigMock = vi.fn<() => Promise<AppConfig>>();
 const updateConfigMock = vi.fn();
 const resetConfigMock = vi.fn();
 const isAdminMock = vi.fn<() => Promise<boolean>>();
+const openCcSwitchMock = vi.fn<() => Promise<void>>();
 const restartAsAdminMock = vi.fn<() => Promise<void>>();
 const listenMock = vi.fn();
 
@@ -26,6 +27,7 @@ vi.mock("./lib/api", () => ({
   updateConfig: (...args: unknown[]) => updateConfigMock(...args),
   resetConfig: () => resetConfigMock(),
   isAdmin: () => isAdminMock(),
+  openCcSwitch: () => openCcSwitchMock(),
   restartAsAdmin: () => restartAsAdminMock(),
 }));
 
@@ -63,6 +65,7 @@ describe("App", () => {
         mode: "none",
         npmRegistry: "default",
       },
+      ccswitchPath: undefined,
     });
     isAdminMock.mockResolvedValue(true);
   });
@@ -294,6 +297,78 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(installToolMock).toHaveBeenCalledWith("claude");
+    });
+  });
+
+  it("saves a manual ccSwitch path and re-detects the tool", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      {
+        id: "ccswitch",
+        name: "ccSwitch",
+        category: "ai",
+        status: "missing",
+        version: undefined,
+        executablePath: undefined,
+        detectionMethod: "path_probe",
+        lastCheckedAt: "2026-05-03T11:40:00+08:00",
+      },
+    ]);
+    updateConfigMock.mockResolvedValue({
+      installNetwork: {
+        mode: "none",
+        npmRegistry: "default",
+      },
+      ccswitchPath: "C:\\Program Files\\ccswitch\\ccswitch.exe",
+    });
+    detectToolMock.mockResolvedValue({
+      id: "ccswitch",
+      name: "ccSwitch",
+      category: "ai",
+      status: "installed",
+      version: undefined,
+      executablePath: "C:\\Program Files\\ccswitch\\ccswitch.exe",
+      detectionMethod: "path_probe",
+      lastCheckedAt: "2026-05-03T11:41:00+08:00",
+    });
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("ccSwitch executable"), {
+      target: { value: "C:\\Program Files\\ccswitch\\ccswitch.exe" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save ccSwitch path" }));
+
+    await waitFor(() => {
+      expect(updateConfigMock).toHaveBeenCalledWith({
+        ccswitchPath: "C:\\Program Files\\ccswitch\\ccswitch.exe",
+      });
+      expect(detectToolMock).toHaveBeenCalledWith("ccswitch");
+    });
+  });
+
+  it("opens ccSwitch only when a detected executable path exists", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      {
+        id: "ccswitch",
+        name: "ccSwitch",
+        category: "ai",
+        status: "installed",
+        version: undefined,
+        executablePath: "C:\\Program Files\\ccswitch\\ccswitch.exe",
+        detectionMethod: "path_probe",
+        lastCheckedAt: "2026-05-03T11:45:00+08:00",
+      },
+    ]);
+    openCcSwitchMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    const openButton = await screen.findByRole("button", { name: "Open ccSwitch" });
+    expect(openButton).not.toBeDisabled();
+    fireEvent.click(openButton);
+
+    await waitFor(() => {
+      expect(openCcSwitchMock).toHaveBeenCalledTimes(1);
     });
   });
 });

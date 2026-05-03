@@ -12,6 +12,8 @@ mod winget;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
+use crate::config;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolCategory {
@@ -90,7 +92,12 @@ pub async fn detect_tool(
         "claude" => claude::detect(),
         "codex" => codex::detect(),
         "opencode" => opencode::detect(),
-        "ccswitch" => ccswitch::detect(),
+        "ccswitch" => {
+            let configured_path = config::get_config()
+                .ok()
+                .and_then(|item| item.ccswitch_path.map(std::path::PathBuf::from));
+            ccswitch::detect_with_config_path(configured_path)
+        }
         _ => {
             return Err(format!("unsupported tool id: {tool_id}"));
         }
@@ -206,6 +213,13 @@ pub(crate) fn recheck_ai_npm_command(command_name: &str, display_name: &str) -> 
 #[allow(dead_code)]
 pub(crate) fn current_npm_status() -> ToolStatus {
     detect_npm()
+}
+
+#[allow(dead_code)]
+pub(crate) fn resolve_ccswitch_path(
+    configured_path: Option<std::path::PathBuf>,
+) -> Option<std::path::PathBuf> {
+    ccswitch::resolve_detected_path(configured_path)
 }
 
 fn detect_npm() -> ToolStatus {

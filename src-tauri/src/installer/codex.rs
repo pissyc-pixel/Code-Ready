@@ -59,6 +59,7 @@ mod tests {
                 npm_registry: NpmRegistryOption::Custom,
                 custom_npm_registry: Some("https://registry.example.com".to_string()),
             },
+            ccswitch_path: None,
         },
             false,
         )
