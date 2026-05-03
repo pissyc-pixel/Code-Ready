@@ -22,7 +22,14 @@ import type {
 import type { ToolId, ToolStatus } from "./types/tool";
 
 const initialRows = [...mockBaseTools, ...mockAiTools];
-const INSTALLABLE_TOOL_IDS: ToolId[] = ["git", "node", "python"];
+const INSTALLABLE_TOOL_IDS: ToolId[] = [
+  "git",
+  "node",
+  "python",
+  "claude",
+  "codex",
+  "opencode",
+];
 
 function App() {
   const [rows, setRows] = useState<ToolStatus[]>(() =>
@@ -235,7 +242,7 @@ function App() {
       <section className="panel">
         <div className="panel-header">
           <h2>AI Coding 工具</h2>
-          <p>当前阶段仍只做检测，不接入 Claude / Codex / OpenCode / ccSwitch 安装。</p>
+          <p>Claude / Codex / OpenCode 已接入安装，ccSwitch 仍在后续 commit 再补。</p>
         </div>
         <ToolTable
           rows={groupedRows.ai}

@@ -14,7 +14,7 @@ use crate::{
     config::AppConfig,
     detector::ToolInstallStatus,
     detector::{self, DetectResultEvent},
-    installer::{git, node, python, 
+    installer::{claude, codex, git, node, opencode, python,
         now_timestamp, InstallPhase, InstallProgressEvent, InstallResult, InstallStatusEvent,
     },
     logger::redact::redact_line,
@@ -26,6 +26,7 @@ use crate::{
 pub struct InstallCommandSpec {
     pub program: String,
     pub args: Vec<String>,
+    pub envs: Vec<(String, String)>,
     pub timeout: Duration,
     pub started_suggestion: Option<String>,
     pub success_suggestion: Option<String>,
@@ -35,8 +36,11 @@ pub struct InstallCommandSpec {
 
 pub fn build_command_spec(tool_id: &str, config: &AppConfig) -> Result<InstallCommandSpec, String> {
     match tool_id {
+        "claude" => claude::command_spec(config),
+        "codex" => codex::command_spec(config),
         "git" => Ok(git::command_spec(config)),
         "node" => Ok(node::command_spec(config)),
+        "opencode" => opencode::command_spec(config),
         "python" => Ok(python::command_spec(config)),
         "__test_success__" => Ok(InstallCommandSpec {
             program: "powershell".to_string(),
@@ -45,6 +49,7 @@ pub fn build_command_spec(tool_id: &str, config: &AppConfig) -> Result<InstallCo
                 "-Command".to_string(),
                 "Write-Output 'token=abc123'; Start-Sleep -Milliseconds 100; Write-Output 'Authorization: Bearer secret-token'; Start-Sleep -Milliseconds 100".to_string(),
             ],
+            envs: Vec::new(),
             timeout: Duration::from_secs(10),
             started_suggestion: None,
             success_suggestion: Some(
@@ -61,6 +66,7 @@ pub fn build_command_spec(tool_id: &str, config: &AppConfig) -> Result<InstallCo
                 "-Command".to_string(),
                 "Start-Sleep -Seconds 3".to_string(),
             ],
+            envs: Vec::new(),
             timeout: Duration::from_millis(500),
             started_suggestion: None,
             success_suggestion: None,
@@ -74,6 +80,7 @@ pub fn build_command_spec(tool_id: &str, config: &AppConfig) -> Result<InstallCo
                 "-Command".to_string(),
                 "1..20 | ForEach-Object { Write-Output \"line=$_\"; Start-Sleep -Milliseconds 200 }".to_string(),
             ],
+            envs: Vec::new(),
             timeout: Duration::from_secs(10),
             started_suggestion: None,
             success_suggestion: None,
@@ -113,6 +120,7 @@ fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -
 
     let mut child = Command::new(&spec.program)
         .args(&spec.args)
+        .envs(spec.envs.iter().cloned())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

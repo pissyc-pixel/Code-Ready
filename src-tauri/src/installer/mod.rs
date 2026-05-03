@@ -1,6 +1,9 @@
+pub mod claude;
+pub mod codex;
 pub mod git;
 pub mod node;
 pub mod npm;
+pub mod opencode;
 pub mod python;
 pub mod runner;
 

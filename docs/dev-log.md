@@ -219,6 +219,192 @@ Summary:
   - Saved/read/uploaded API key: no
   - Took over system proxy: no
   - Read/wrote ccSwitch database directly: no
+- Added one-click install: no
+
+# V0.4 Commit 2 Validation
+
+## Commit Goal
+
+- Commit target: `feat: implement claude codex opencode installers`
+- Scope:
+  - Claude Code installer
+  - Codex CLI installer
+  - OpenCode installer
+  - Claude `manual_proxy` prefers npm fallback
+  - Claude native install uses PowerShell `-ExecutionPolicy Bypass`
+  - Single-use npm registry flag reuse
+  - Post-install re-detect for `claude / codex / opencode`
+- Not included:
+  - ccSwitch path/open/download
+  - Provider writes
+  - API key storage
+  - PATH auto repair
+  - one-click install
+
+## Difficulty Handling Record
+
+### Current phase
+
+- V0.4 Commit 2 implementation and acceptance
+
+### Current task
+
+- Wire real AI installer command specs into the existing background install runner without expanding into ccSwitch
+
+### Failed commands
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml
+apply_patch
+```
+
+### Error summary
+
+- `cargo test` initially failed because unit tests for Claude / Codex / OpenCode were coupled to the local machine having npm available.
+- A follow-up `apply_patch` attempt failed due to a malformed multi-file patch hunk, not because of a product design issue.
+
+### superpower
+
+- Available: no
+- Record:
+
+```text
+superpower 不可用。
+已改为 findskills + 仓库文档 + 保守实现方案。
+```
+
+### findskills
+
+- Available: yes
+- Query:
+
+```powershell
+npx skills find "rust test helper visibility module private function unit test"
+```
+
+- Relevant results:
+  - `rust-refactor-helper`
+  - `quality-unit-testing`
+  - `rust-testing-code-review`
+- Adopted guidance:
+  - Keep the fix minimal.
+  - Separate environment-dependent prerequisite checks from pure command-construction tests.
+  - Re-run the full acceptance suite after the small visibility/testability fix.
+
+### Final fix
+
+- Split “command construction” from “runtime prerequisite enforcement” for Claude / Codex / OpenCode unit tests.
+- Kept real runtime prerequisite checks in public installer entrypoints.
+- Added the missing internal helper imports in the test modules.
+- Re-ran the full acceptance suite after the fix.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 5 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 754ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 6.52s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- Claude installer behavior now matches the PRD:
+  - `manual_proxy` -> prefer npm fallback
+  - otherwise -> use official PowerShell native install with `-ExecutionPolicy Bypass`
+- Codex and OpenCode install through global npm only, with single-use `--registry` when configured.
+- No `npm config set registry`, no system proxy takeover, and no Provider or API key writes were introduced.
+- Manual proxy values are applied only as per-process environment variables, not as system-wide proxy changes.
+- Frontend now exposes install buttons for `claude / codex / opencode`, while `ccSwitch` remains out of scope for this commit.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not let this commit drift into ccSwitch.
+  - Do not turn `install_tool` into a blocking invoke.
+  - Do not fake AI installers with mock-only behavior.
+  - Do not persist npm registry or system proxy changes.
+  - Fix testability issues without deleting real prerequisite checks.
+- Self-check result:
+  - Skipped validation: no
+  - Drifted outside commit 2 scope: no
+  - Mixed in ccSwitch work: no
+  - Introduced blocking install invoke: no
+  - Persisted npm registry: no
+  - Modified system proxy: no
+  - Saved or read API keys: no
   - Added one-click install: no
   - Added automatic outdated judgment: no
   - Removed core PRD constraints: no

@@ -271,4 +271,29 @@ describe("App", () => {
       expect(nextInstallButtons[0]).not.toBeDisabled();
     });
   });
+
+  it("enables AI install buttons and starts Claude install immediately", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      {
+        id: "claude",
+        name: "Claude Code",
+        category: "ai",
+        status: "missing",
+        version: undefined,
+        executablePath: undefined,
+        detectionMethod: "npm_global_probe",
+        lastCheckedAt: "2026-05-03T11:20:00+08:00",
+      },
+    ]);
+    installToolMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    const installButton = await screen.findByRole("button", { name: "安装" });
+    fireEvent.click(installButton);
+
+    await waitFor(() => {
+      expect(installToolMock).toHaveBeenCalledWith("claude");
+    });
+  });
 });

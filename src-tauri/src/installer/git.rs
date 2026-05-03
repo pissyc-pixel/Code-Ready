@@ -15,6 +15,7 @@ pub fn command_spec(config: &AppConfig) -> InstallCommandSpec {
             "--accept-package-agreements".to_string(),
             "--accept-source-agreements".to_string(),
         ],
+        envs: Vec::new(),
         timeout: std::time::Duration::from_secs(30 * 60),
         started_suggestion: winget_proxy_warning(config),
         success_suggestion: Some("Git for Windows 安装完成，正在重新检测 Git / Git Bash。".to_string()),
