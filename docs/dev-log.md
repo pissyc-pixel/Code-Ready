@@ -582,7 +582,131 @@ Summary:
   - Added unknown accelerator: no
   - Hard-coded uncertain official URL: no
   - Touched database or Provider: no
-  - Blocked future V0.5 work: no
+- Blocked future V0.5 work: no
+
+# V0.5 Commit 1 Validation
+
+## Commit Goal
+
+- Commit target: `feat: add reinstall and latest install actions`
+- Scope:
+  - add `reinstall_tool`
+  - add `install_latest_tool`
+  - both still return immediately
+  - final result still flows through `install:status`
+  - npm AI tools use `@latest` in latest mode
+- Not included:
+  - auto outdated judgment
+  - PATH repair instructions
+  - subscription entry
+  - log export
+
+## Key Decisions
+
+- `install_tool`, `reinstall_tool`, and `install_latest_tool` now share the same background install entrypoint and lock semantics.
+- `install_latest_tool` is only enabled for npm-based AI tools:
+  - `claude`
+  - `codex`
+  - `opencode`
+- `claude` latest mode uses npm `@latest` to satisfy the V0.5 requirement without changing the global npm registry.
+- `git / node / python / ccswitch` do not pretend to support “latest” in V0.5; they return a clear unsupported message instead.
+- No auto outdated detection was introduced.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 9 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 921ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 1.97s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+50 tests passed
+0 failed
+```
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - keep reinstall/latest on the existing event-driven background runner
+  - do not turn latest into outdated detection
+  - do not widen latest support by guessing version channels for non-npm tools
+  - do not skip full acceptance after adding new commands and UI actions
+- Self-check result:
+  - Skipped validation: no
+  - Drifted outside commit 1 scope: no
+  - Added auto outdated judgment: no
+  - Broke immediate-return semantics: no
+  - Persisted npm registry: no
+  - Mixed in V0.5 commit 2-4 work: no
   - Touched database or Provider: no
   - Launched GUI during detection: no
   - Added node client logic: no

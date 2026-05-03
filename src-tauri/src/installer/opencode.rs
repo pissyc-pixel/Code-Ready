@@ -4,18 +4,29 @@ use crate::{config::AppConfig, network::proxy_env::proxy_env_vars};
 
 use super::{
     npm::{
-        build_global_install_args, check_npm_install_prerequisites, package_spec, AiNpmPackageId,
+        build_global_install_args, build_global_install_args_with_target,
+        check_npm_install_prerequisites, package_spec, AiNpmPackageId,
     },
     runner::InstallCommandSpec,
+    InstallRequestMode,
 };
 
+#[allow(dead_code)]
 pub fn command_spec(config: &AppConfig) -> Result<InstallCommandSpec, String> {
-    command_spec_with_prerequisite_check(config, true)
+    command_spec_for_mode(config, InstallRequestMode::Install)
+}
+
+pub fn command_spec_for_mode(
+    config: &AppConfig,
+    mode: InstallRequestMode,
+) -> Result<InstallCommandSpec, String> {
+    command_spec_with_prerequisite_check(config, true, mode)
 }
 
 fn command_spec_with_prerequisite_check(
     config: &AppConfig,
     check_prerequisites: bool,
+    mode: InstallRequestMode,
 ) -> Result<InstallCommandSpec, String> {
     if check_prerequisites {
         check_npm_install_prerequisites()
@@ -23,9 +34,18 @@ fn command_spec_with_prerequisite_check(
     }
 
     let package = package_spec(AiNpmPackageId::Opencode);
+    let package_target = if matches!(mode, InstallRequestMode::Latest) {
+        format!("{}@latest", package.package_name)
+    } else {
+        package.package_name.to_string()
+    };
     Ok(InstallCommandSpec {
         program: "npm".to_string(),
-        args: build_global_install_args(&package, &config.install_network),
+        args: if package_target == package.package_name {
+            build_global_install_args(&package, &config.install_network)
+        } else {
+            build_global_install_args_with_target(&package_target, &config.install_network)
+        },
         envs: proxy_env_vars(&config.install_network),
         timeout: Duration::from_secs(20 * 60),
         started_suggestion: Some("OpenCode will be installed via global npm.".to_string()),
@@ -48,6 +68,7 @@ fn command_spec_with_prerequisite_check(
 mod tests {
     use super::command_spec_with_prerequisite_check;
     use crate::config::{AppConfig, InstallNetworkConfig, InstallNetworkMode, NpmRegistryOption};
+    use crate::installer::InstallRequestMode;
 
     #[test]
     fn builds_opencode_npm_install_command() {
@@ -63,6 +84,7 @@ mod tests {
             ccswitch_download_sources: Vec::new(),
         },
             false,
+            InstallRequestMode::Install,
         )
         .expect("opencode install spec");
 
@@ -77,5 +99,24 @@ mod tests {
             ]
         );
         assert_eq!(spec.detect_after, vec!["opencode".to_string()]);
+    }
+
+    #[test]
+    fn builds_opencode_latest_install_command() {
+        let spec = command_spec_with_prerequisite_check(
+            &AppConfig::default(),
+            false,
+            InstallRequestMode::Latest,
+        )
+        .expect("opencode latest spec");
+
+        assert_eq!(
+            spec.args,
+            vec![
+                "install".to_string(),
+                "-g".to_string(),
+                "opencode-ai@latest".to_string(),
+            ]
+        );
     }
 }

@@ -15,7 +15,8 @@ use crate::{
     detector::ToolInstallStatus,
     detector::{self, DetectResultEvent},
     installer::{ccswitch, claude, codex, git, node, opencode, python,
-        now_timestamp, InstallPhase, InstallProgressEvent, InstallResult, InstallStatusEvent,
+        now_timestamp, InstallPhase, InstallProgressEvent, InstallRequestMode, InstallResult,
+        InstallStatusEvent,
     },
     logger::redact::redact_line,
     process::kill_tree::{kill_process_tree, KillTreeOutcome},
@@ -34,15 +35,48 @@ pub struct InstallCommandSpec {
     pub detect_after: Vec<String>,
 }
 
+#[allow(dead_code)]
 pub fn build_command_spec(tool_id: &str, config: &AppConfig) -> Result<InstallCommandSpec, String> {
+    build_command_spec_for_mode(tool_id, config, InstallRequestMode::Install)
+}
+
+pub fn build_command_spec_for_mode(
+    tool_id: &str,
+    config: &AppConfig,
+    mode: InstallRequestMode,
+) -> Result<InstallCommandSpec, String> {
     match tool_id {
-        "ccswitch" => ccswitch::command_spec(config),
-        "claude" => claude::command_spec(config),
-        "codex" => codex::command_spec(config),
-        "git" => Ok(git::command_spec(config)),
-        "node" => Ok(node::command_spec(config)),
-        "opencode" => opencode::command_spec(config),
-        "python" => Ok(python::command_spec(config)),
+        "ccswitch" => {
+            if matches!(mode, InstallRequestMode::Latest) {
+                Err("latest install is not available for ccswitch in V0.5".to_string())
+            } else {
+                ccswitch::command_spec(config)
+            }
+        }
+        "claude" => claude::command_spec_for_mode(config, mode),
+        "codex" => codex::command_spec_for_mode(config, mode),
+        "git" => {
+            if matches!(mode, InstallRequestMode::Latest) {
+                Err("latest install is not available for git in V0.5".to_string())
+            } else {
+                Ok(git::command_spec(config))
+            }
+        }
+        "node" => {
+            if matches!(mode, InstallRequestMode::Latest) {
+                Err("latest install is not available for node in V0.5".to_string())
+            } else {
+                Ok(node::command_spec(config))
+            }
+        }
+        "opencode" => opencode::command_spec_for_mode(config, mode),
+        "python" => {
+            if matches!(mode, InstallRequestMode::Latest) {
+                Err("latest install is not available for python in V0.5".to_string())
+            } else {
+                Ok(python::command_spec(config))
+            }
+        }
         "__test_success__" => Ok(InstallCommandSpec {
             program: "powershell".to_string(),
             args: vec![

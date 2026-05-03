@@ -8,9 +8,11 @@ import {
   detectAllTools,
   detectTool,
   getConfig,
+  installLatestTool,
   installTool,
   isAdmin,
   openCcSwitch,
+  reinstallTool,
   restartAsAdmin,
   updateConfig,
 } from "./lib/api";
@@ -33,6 +35,7 @@ const INSTALLABLE_TOOL_IDS: ToolId[] = [
   "opencode",
   "ccswitch",
 ];
+const LATEST_INSTALLABLE_TOOL_IDS: ToolId[] = ["claude", "codex", "opencode"];
 
 function App() {
   const [rows, setRows] = useState<ToolStatus[]>(() =>
@@ -179,6 +182,32 @@ function App() {
     }
   }
 
+  async function runReinstall(toolId: ToolId) {
+    try {
+      await reinstallTool(toolId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.id === toolId ? { ...row, errorMessage: message } : row,
+        ),
+      );
+    }
+  }
+
+  async function runInstallLatest(toolId: ToolId) {
+    try {
+      await installLatestTool(toolId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.id === toolId ? { ...row, errorMessage: message } : row,
+        ),
+      );
+    }
+  }
+
   async function runCancelInstall() {
     try {
       await cancelInstall();
@@ -268,6 +297,8 @@ function App() {
           rows={groupedRows.base}
           onDetect={runDetectOne}
           onInstall={runInstall}
+          onReinstall={runReinstall}
+          onInstallLatest={runInstallLatest}
           onCancelInstall={runCancelInstall}
           installState={installState}
         />
@@ -282,6 +313,8 @@ function App() {
           rows={groupedRows.ai}
           onDetect={runDetectOne}
           onInstall={runInstall}
+          onReinstall={runReinstall}
+          onInstallLatest={runInstallLatest}
           onCancelInstall={runCancelInstall}
           installState={installState}
         />
@@ -365,6 +398,8 @@ type ToolTableProps = {
   rows: ToolStatus[];
   onDetect: (toolId: ToolId) => Promise<void>;
   onInstall: (toolId: ToolId) => Promise<void>;
+  onReinstall: (toolId: ToolId) => Promise<void>;
+  onInstallLatest: (toolId: ToolId) => Promise<void>;
   onCancelInstall: () => Promise<void>;
   installState: InstallTaskViewState;
 };
@@ -373,6 +408,8 @@ function ToolTable({
   rows,
   onDetect,
   onInstall,
+  onReinstall,
+  onInstallLatest,
   onCancelInstall,
   installState,
 }: ToolTableProps) {
@@ -392,11 +429,24 @@ function ToolTable({
           {rows.map((row) => {
             const meta = statusMeta[row.status];
             const canInstall = INSTALLABLE_TOOL_IDS.includes(row.id);
+            const canInstallLatest = LATEST_INSTALLABLE_TOOL_IDS.includes(row.id);
             const showInstallButton = canInstall && row.status === "missing";
+            const showReinstallButton =
+              canInstall &&
+              row.status !== "missing" &&
+              row.status !== "checking" &&
+              !(
+                installState.isInstalling && installState.activeToolId === row.id
+              );
+            const showInstallLatestButton =
+              canInstallLatest &&
+              row.status !== "checking" &&
+              !(
+                installState.isInstalling && installState.activeToolId === row.id
+              );
             const showCancelButton =
               installState.isInstalling && installState.activeToolId === row.id;
             const disableInstallButton =
-              showInstallButton &&
               installState.isInstalling &&
               installState.activeToolId !== row.id;
 
@@ -430,6 +480,26 @@ function ToolTable({
                           onClick={() => void onInstall(row.id)}
                         >
                           安装
+                        </button>
+                      ) : null}
+                      {showReinstallButton ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          disabled={disableInstallButton}
+                          onClick={() => void onReinstall(row.id)}
+                        >
+                          Reinstall
+                        </button>
+                      ) : null}
+                      {showInstallLatestButton ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          disabled={disableInstallButton}
+                          onClick={() => void onInstallLatest(row.id)}
+                        >
+                          Install latest
                         </button>
                       ) : null}
                       {showCancelButton ? (

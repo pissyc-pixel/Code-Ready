@@ -91,10 +91,17 @@ pub fn build_global_install_args(
     package: &NpmPackageSpec,
     config: &InstallNetworkConfig,
 ) -> Vec<String> {
+    build_global_install_args_with_target(package.package_name, config)
+}
+
+pub fn build_global_install_args_with_target(
+    package_target: &str,
+    config: &InstallNetworkConfig,
+) -> Vec<String> {
     let mut args = vec![
         "install".to_string(),
         "-g".to_string(),
-        package.package_name.to_string(),
+        package_target.to_string(),
     ];
     args.extend(npm_registry_args(config));
     args
@@ -131,7 +138,8 @@ pub fn recheck_npm_global_command(command_name: &str, display_name: &str) -> Too
 #[cfg(test)]
 mod tests {
     use super::{
-        build_global_install_args, package_spec, AiNpmPackageId, NpmDependencyIssue,
+        build_global_install_args, build_global_install_args_with_target, package_spec,
+        AiNpmPackageId, NpmDependencyIssue,
     };
     use crate::config::{InstallNetworkConfig, InstallNetworkMode, NpmRegistryOption};
 
@@ -199,6 +207,28 @@ mod tests {
                 "-g".to_string(),
                 "opencode-ai".to_string(),
                 "--registry=https://registry.example.com".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn builds_latest_target_install_args() {
+        let args = build_global_install_args_with_target(
+            "@openai/codex@latest",
+            &InstallNetworkConfig {
+                mode: InstallNetworkMode::ManualProxy,
+                proxy_url: Some("http://127.0.0.1:7890".to_string()),
+                npm_registry: NpmRegistryOption::Default,
+                custom_npm_registry: None,
+            },
+        );
+
+        assert_eq!(
+            args,
+            vec![
+                "install".to_string(),
+                "-g".to_string(),
+                "@openai/codex@latest".to_string(),
             ]
         );
     }

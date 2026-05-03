@@ -24,6 +24,13 @@ pub enum InstallPhase {
     Timeout,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallRequestMode {
+    Install,
+    Reinstall,
+    Latest,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -7,33 +7,62 @@ use crate::{
 
 use super::{
     npm::{
-        build_global_install_args, check_npm_install_prerequisites, package_spec, AiNpmPackageId,
+        build_global_install_args, build_global_install_args_with_target,
+        check_npm_install_prerequisites, package_spec, AiNpmPackageId,
     },
     runner::InstallCommandSpec,
+    InstallRequestMode,
 };
 
+#[allow(dead_code)]
 pub fn command_spec(config: &AppConfig) -> Result<InstallCommandSpec, String> {
-    command_spec_with_prerequisite_check(config, true)
+    command_spec_for_mode(config, InstallRequestMode::Install)
+}
+
+pub fn command_spec_for_mode(
+    config: &AppConfig,
+    mode: InstallRequestMode,
+) -> Result<InstallCommandSpec, String> {
+    command_spec_with_prerequisite_check(config, true, mode)
 }
 
 fn command_spec_with_prerequisite_check(
     config: &AppConfig,
     check_prerequisites: bool,
+    mode: InstallRequestMode,
 ) -> Result<InstallCommandSpec, String> {
-    if matches!(config.install_network.mode, InstallNetworkMode::ManualProxy) {
+    if matches!(config.install_network.mode, InstallNetworkMode::ManualProxy)
+        || matches!(mode, InstallRequestMode::Latest)
+    {
         if check_prerequisites {
             check_npm_install_prerequisites()
                 .map_err(|issue| format!("{} {}", issue.error_message(), issue.suggestion()))?;
         }
 
         let package = package_spec(AiNpmPackageId::Claude);
+        let package_target = if matches!(mode, InstallRequestMode::Latest) {
+            format!("{}@latest", package.package_name)
+        } else {
+            package.package_name.to_string()
+        };
         return Ok(InstallCommandSpec {
             program: "npm".to_string(),
-            args: build_global_install_args(&package, &config.install_network),
+            args: if matches!(mode, InstallRequestMode::Install | InstallRequestMode::Reinstall)
+                && package_target == package.package_name
+            {
+                build_global_install_args(&package, &config.install_network)
+            } else {
+                build_global_install_args_with_target(&package_target, &config.install_network)
+            },
             envs: proxy_env_vars(&config.install_network),
             timeout: Duration::from_secs(20 * 60),
             started_suggestion: Some(
-                "manual_proxy mode prefers the npm fallback for Claude Code.".to_string(),
+                if matches!(mode, InstallRequestMode::Latest) {
+                    "Claude Code latest install uses the npm fallback with @latest."
+                } else {
+                    "manual_proxy mode prefers the npm fallback for Claude Code."
+                }
+                .to_string(),
             ),
             success_suggestion: Some(
                 "Claude Code installation finished; re-checking command availability."
@@ -81,6 +110,7 @@ fn command_spec_with_prerequisite_check(
 mod tests {
     use super::{command_spec, command_spec_with_prerequisite_check};
     use crate::config::{AppConfig, InstallNetworkConfig, InstallNetworkMode, NpmRegistryOption};
+    use crate::installer::InstallRequestMode;
 
     #[test]
     fn uses_npm_fallback_for_claude_in_manual_proxy_mode() {
@@ -96,6 +126,7 @@ mod tests {
             ccswitch_download_sources: Vec::new(),
         },
             false,
+            InstallRequestMode::Install,
         )
         .expect("manual proxy should build npm fallback");
 
@@ -132,5 +163,25 @@ mod tests {
             ]
         );
         assert_eq!(spec.detect_after, vec!["claude".to_string()]);
+    }
+
+    #[test]
+    fn latest_claude_install_uses_npm_latest_target() {
+        let spec = command_spec_with_prerequisite_check(
+            &AppConfig::default(),
+            false,
+            InstallRequestMode::Latest,
+        )
+        .expect("latest mode should use npm");
+
+        assert_eq!(spec.program, "npm");
+        assert_eq!(
+            spec.args,
+            vec![
+                "install".to_string(),
+                "-g".to_string(),
+                "@anthropic-ai/claude-code@latest".to_string(),
+            ]
+        );
     }
 }

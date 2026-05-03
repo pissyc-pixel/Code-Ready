@@ -20,6 +20,8 @@ pub fn run() {
             commands::detect::detect_tool,
             commands::detect::detect_all_tools,
             commands::install::install_tool,
+            commands::install::reinstall_tool,
+            commands::install::install_latest_tool,
             commands::install::cancel_install,
             commands::privilege::is_admin,
             commands::privilege::restart_as_admin

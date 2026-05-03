@@ -9,6 +9,8 @@ import type { ToolStatus } from "./types/tool";
 const detectAllToolsMock = vi.fn<() => Promise<ToolStatus[]>>();
 const detectToolMock = vi.fn();
 const installToolMock = vi.fn<() => Promise<void>>();
+const reinstallToolMock = vi.fn<() => Promise<void>>();
+const installLatestToolMock = vi.fn<() => Promise<void>>();
 const cancelInstallMock = vi.fn<() => Promise<void>>();
 const getConfigMock = vi.fn<() => Promise<AppConfig>>();
 const updateConfigMock = vi.fn();
@@ -22,6 +24,8 @@ vi.mock("./lib/api", () => ({
   detectAllTools: () => detectAllToolsMock(),
   detectTool: (...args: unknown[]) => detectToolMock(...args),
   installTool: (...args: unknown[]) => installToolMock(...args),
+  reinstallTool: (...args: unknown[]) => reinstallToolMock(...args),
+  installLatestTool: (...args: unknown[]) => installLatestToolMock(...args),
   cancelInstall: (...args: unknown[]) => cancelInstallMock(...args),
   getConfig: () => getConfigMock(),
   updateConfig: (...args: unknown[]) => updateConfigMock(...args),
@@ -398,6 +402,33 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Configured download sources: 1/)).toBeInTheDocument();
+    });
+  });
+
+  it("starts reinstall and latest install actions immediately for npm AI tools", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      {
+        id: "codex",
+        name: "Codex CLI",
+        category: "ai",
+        status: "installed",
+        version: "0.1.0",
+        executablePath: "C:\\Users\\me\\AppData\\Roaming\\npm\\codex.cmd",
+        detectionMethod: "npm_global_probe",
+        lastCheckedAt: "2026-05-03T13:05:00+08:00",
+      },
+    ]);
+    reinstallToolMock.mockResolvedValue(undefined);
+    installLatestToolMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reinstall" }));
+    fireEvent.click(screen.getByRole("button", { name: "Install latest" }));
+
+    await waitFor(() => {
+      expect(reinstallToolMock).toHaveBeenCalledWith("codex");
+      expect(installLatestToolMock).toHaveBeenCalledWith("codex");
     });
   });
 });

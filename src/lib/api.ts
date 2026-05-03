@@ -14,6 +14,14 @@ export async function installTool(toolId: ToolId): Promise<void> {
   return invoke<void>("install_tool", { toolId });
 }
 
+export async function reinstallTool(toolId: ToolId): Promise<void> {
+  return invoke<void>("reinstall_tool", { toolId });
+}
+
+export async function installLatestTool(toolId: ToolId): Promise<void> {
+  return invoke<void>("install_latest_tool", { toolId });
+}
+
 export async function cancelInstall(): Promise<void> {
   return invoke<void>("cancel_install");
 }
