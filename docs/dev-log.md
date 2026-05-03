@@ -800,3 +800,189 @@ Summary:
   - Executed `npm config set registry`: no
   - Added one-click install: no
   - Modified system PATH automatically: no
+
+# V0.4 Commit 1 Validation
+
+## Time
+
+2026-05-03 10:40 (Asia/Shanghai)
+
+## Scope
+
+- Added reusable AI npm package metadata and command construction helpers.
+- Added single-use npm registry argument append helpers without touching global npm config.
+- Added Node/npm prerequisite check helpers for future AI tool installers.
+- Added reusable npm global command recheck helpers for Claude / Codex / OpenCode follow-up installs.
+- Kept V0.4 commit 1 strictly out of real Claude / Codex / OpenCode installation and out of all ccSwitch work.
+
+## Difficulty Handling Record
+
+### Current stage
+
+V0.4 commit 1 implementation and verification
+
+### Current task
+
+Wire AI npm helper infrastructure into the existing codebase without expanding the install surface.
+
+### Failed commands
+
+- `cargo check --manifest-path src-tauri/Cargo.toml`
+- `cargo test --manifest-path src-tauri/Cargo.toml installer::npm -- --nocapture`
+
+### Error summary
+
+- `installer/npm.rs` tried to import `detector::shared` and `detector::npm_global` directly.
+- Both modules are private, so Rust failed with `module ... is private`.
+
+### superpower
+
+- Available: no
+- Note: `superpower 不可用。已改为 findskills + 仓库文档 + 保守实现方案。`
+
+### findskills
+
+- Available: yes
+- Relevant guidance reused:
+  - keep internal module boundaries narrow
+  - expose only minimal wrappers instead of making whole internal modules public
+
+### pua reminders adopted
+
+- Do not solve a helper-layer compile error by over-exposing detector internals.
+- Keep the fix within commit 1 scope.
+- Do not jump ahead to real Claude / Codex / OpenCode installers.
+
+### Final fix
+
+- Added minimal `pub(crate)` detector wrapper functions for:
+  - Node runtime presence
+  - npm global probe path
+  - current npm status
+  - AI npm command recheck
+- Updated `installer/npm.rs` to depend on those wrappers instead of private modules.
+
+## Additional Verification Noise Handling
+
+### Failed commands
+
+- `npx vitest run src/App.test.tsx --reporter=verbose`
+- `npm run build`
+
+### Error summary
+
+- `vitest` worker startup timed out when the frontend commands were run in parallel.
+- `npm run build` also timed out in the same parallel verification pass.
+- Rust acceptance still passed, indicating execution-layer contention rather than a product-code regression.
+
+### Fix
+
+- Inspected active `node.exe` processes.
+- Killed only repository-related stale `npm / vite / vitest` processes.
+- Re-ran frontend test and build serially.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 4 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 727ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 1.75s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+32 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- npm helper data now covers:
+  - `@anthropic-ai/claude-code`
+  - `@openai/codex`
+  - `opencode-ai`
+- Registry handling remains single-use only and never writes `.npmrc` or global npm config.
+- This commit only prepares AI npm install infrastructure; it does not expose new real installation behavior to users yet.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not let helper work masquerade as real AI installer completion.
+  - Do not write `npm config set registry`.
+  - Do not expand into ccSwitch or concrete AI installers yet.
+  - Do not skip full acceptance after compile-boundary fixes.
+- Self-check result:
+  - Skipped validation: no
+  - Drifted outside commit 1 scope: no
+  - Added real Claude / Codex / OpenCode installers: no
+  - Introduced blocking install invoke: no
+  - Modified system proxy: no
+  - Executed `npm config set registry`: no
+  - Added one-click install: no

@@ -15,6 +15,14 @@ pub fn npm_registry_args(config: &InstallNetworkConfig) -> Vec<String> {
     }
 }
 
+#[allow(dead_code)]
+pub fn append_npm_registry_args(
+    args: &mut Vec<String>,
+    config: &InstallNetworkConfig,
+) {
+    args.extend(npm_registry_args(config));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -45,5 +53,29 @@ mod tests {
         };
 
         assert!(npm_registry_args(&config).is_empty());
+    }
+
+    #[test]
+    fn appends_registry_args_without_writing_global_config() {
+        let config = InstallNetworkConfig {
+            mode: InstallNetworkMode::ManualProxy,
+            proxy_url: Some("http://127.0.0.1:7890".to_string()),
+            npm_registry: NpmRegistryOption::Custom,
+            custom_npm_registry: Some("https://registry.example.com".to_string()),
+        };
+        let mut args = vec!["install".to_string(), "-g".to_string(), "pkg".to_string()];
+
+        append_npm_registry_args(&mut args, &config);
+
+        assert_eq!(
+            args,
+            vec![
+                "install".to_string(),
+                "-g".to_string(),
+                "pkg".to_string(),
+                "--registry=https://registry.example.com".to_string()
+            ]
+        );
+        assert!(!args.iter().any(|item| item.contains("npm config set registry")));
     }
 }

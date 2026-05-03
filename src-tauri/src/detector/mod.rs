@@ -116,6 +116,98 @@ pub async fn detect_all_tools(app: tauri::AppHandle) -> Result<Vec<ToolStatus>, 
     Ok(results)
 }
 
+#[allow(dead_code)]
+pub(crate) fn has_node_runtime() -> Result<bool, String> {
+    shared::where_command("node")
+        .map(|paths| !paths.is_empty())
+        .map_err(|error| error.to_string())
+}
+
+#[allow(dead_code)]
+pub(crate) fn npm_global_probe_path(command_name: &str) -> Result<Option<std::path::PathBuf>, String> {
+    npm_global::probe_npm_global_command(command_name).map_err(|error| error.to_string())
+}
+
+#[allow(dead_code)]
+pub(crate) fn recheck_ai_npm_command(command_name: &str, display_name: &str) -> ToolStatus {
+    let where_paths = match shared::where_command(command_name) {
+        Ok(paths) => paths,
+        Err(error) => {
+            return shared::build_tool_status(
+                command_name,
+                display_name,
+                ToolCategory::Ai,
+                ToolInstallStatus::DetectFailed,
+                None,
+                None,
+                DetectionMethod::NpmGlobalProbe,
+                Some(error.to_string()),
+                None,
+            )
+        }
+    };
+
+    let path_probe = match npm_global::probe_npm_global_command(command_name) {
+        Ok(path) => path,
+        Err(error) => {
+            return shared::build_tool_status(
+                command_name,
+                display_name,
+                ToolCategory::Ai,
+                ToolInstallStatus::DetectFailed,
+                None,
+                None,
+                DetectionMethod::NpmGlobalProbe,
+                Some(error.to_string()),
+                None,
+            )
+        }
+    };
+
+    let version_result = if !where_paths.is_empty() {
+        shared::run_command(command_name, &["--version"]).map(Some)
+    } else if let Some(path) = path_probe.as_ref() {
+        shared::run_path_command(path, &["--version"]).map(Some)
+    } else {
+        Ok(None)
+    };
+
+    let status = shared::resolve_auth_sensitive_status(
+        !where_paths.is_empty(),
+        path_probe.is_some(),
+        version_result.clone(),
+    );
+    let output = version_result.ok().flatten();
+    let suggestion = if matches!(status, ToolInstallStatus::InstalledButPathMissing) {
+        Some("已探测到 npm 全局命令，但当前 PATH 可能未刷新。".to_string())
+    } else {
+        None
+    };
+
+    shared::build_tool_status(
+        command_name,
+        display_name,
+        ToolCategory::Ai,
+        status,
+        output.as_ref().and_then(shared::extract_version_line),
+        where_paths
+            .first()
+            .cloned()
+            .or_else(|| path_probe.as_ref().map(|path| path.display().to_string())),
+        DetectionMethod::NpmGlobalProbe,
+        output
+            .as_ref()
+            .filter(|item| item.exit_code != 0)
+            .and_then(shared::command_error_message),
+        suggestion,
+    )
+}
+
+#[allow(dead_code)]
+pub(crate) fn current_npm_status() -> ToolStatus {
+    detect_npm()
+}
+
 fn detect_npm() -> ToolStatus {
     let where_paths = match shared::where_command("npm") {
         Ok(paths) => paths,
