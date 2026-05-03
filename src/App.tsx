@@ -31,6 +31,7 @@ const INSTALLABLE_TOOL_IDS: ToolId[] = [
   "claude",
   "codex",
   "opencode",
+  "ccswitch",
 ];
 
 function App() {
@@ -325,6 +326,10 @@ function App() {
               Re-detect ccSwitch
             </button>
           </div>
+          <p className="tool-detail">
+            Configured download sources: {config.ccswitchDownloadSources.length}. If all sources
+            fail or no source is configured, save a manual ccSwitch path instead.
+          </p>
         </div>
       </section>
 

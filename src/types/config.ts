@@ -9,14 +9,28 @@ export type InstallNetworkConfig = {
   customNpmRegistry?: string;
 };
 
+export type CcSwitchDownloadSourceKind = "direct_exe" | "direct_zip";
+
+export type CcSwitchDownloadSource = {
+  name: string;
+  url: string;
+  priority: number;
+  enabled: boolean;
+  kind: CcSwitchDownloadSourceKind;
+  sha256?: string;
+  minFileSizeBytes?: number;
+};
+
 export type AppConfig = {
   installNetwork: InstallNetworkConfig;
   ccswitchPath?: string;
+  ccswitchDownloadSources: CcSwitchDownloadSource[];
 };
 
 export type AppConfigPatch = {
   installNetwork?: Partial<InstallNetworkConfig>;
   ccswitchPath?: string;
+  ccswitchDownloadSources?: CcSwitchDownloadSource[];
 };
 
 export const defaultAppConfig: AppConfig = {
@@ -24,4 +38,5 @@ export const defaultAppConfig: AppConfig = {
     mode: "none",
     npmRegistry: "default",
   },
+  ccswitchDownloadSources: [],
 };

@@ -393,7 +393,196 @@ Summary:
 - Self-check result:
   - Skipped validation: no
   - Drifted outside commit 3 scope: no
-  - Added download logic: no
+- Added download logic: no
+
+# V0.4 Commit 4 Validation
+
+## Commit Goal
+
+- Commit target: `feat: add ccswitch download source support`
+- Scope:
+  - add `ccswitchDownloadSources` config structure
+  - order download sources by ascending `priority`
+  - skip disabled or blank-url sources
+  - retry next source after a failure
+  - validate downloaded file existence, minimum size, and optional sha256
+  - fail safely with a manual-path fallback message when all sources fail
+- Not included:
+  - unknown third-party accelerators
+  - hard-coded uncertain official release links
+  - database writes
+  - Provider writes
+  - deep link / node client work
+
+## Difficulty Handling Record
+
+### Current phase
+
+- V0.4 Commit 4 implementation and acceptance
+
+### Current task
+
+- Build a safe ccSwitch download-source framework without guessing unstable release URLs or drifting into database/provider logic
+
+### Failed commands
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml
+npm run build
+```
+
+### Error summary
+
+- `cargo test` initially failed because:
+  - `installer::ccswitch` tests were missing a `PathBuf` import
+  - several installer tests needed the new `ccswitchDownloadSources` field in `AppConfig`
+- `npm run build` timed out in the same pass due to the recurring stale `vite` process issue, not because of a TypeScript regression
+
+### superpower
+
+- Available: no
+- Record:
+
+```text
+superpower 不可用。
+已改为 findskills + 仓库文档 + 保守实现方案。
+```
+
+### findskills
+
+- Available: yes
+- Query:
+
+```powershell
+npx skills find "vite vitest windows worker timeout stale node process"
+```
+
+- Relevant results:
+  - `vitest`
+  - `electron-app-dev`
+- Adopted guidance:
+  - keep Rust fixes limited to test scaffolding and config compatibility
+  - clear only `D:\aicoding`-related stale `node.exe` processes
+  - re-run frontend verification serially
+
+### Final fix
+
+- Added the missing test import and completed `AppConfig` initializers with the new field.
+- Escaped PowerShell `{0}/{1}` placeholders in the generated script so Rust `format!` would not corrupt the command text.
+- Cleared only repository-related stale `vite` processes and re-ran frontend verification serially.
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 8 passed
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 756ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 1.81s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+46 tests passed
+0 failed
+```
+
+## Key Decisions
+
+- `ccswitchDownloadSources` is now part of AppConfig, but the default value is an empty array.
+- The project does not guess an official default download URL when the stable link is still uncertain.
+- No unknown third-party GitHub accelerator was added.
+- The generated download command validates:
+  - file existence
+  - minimum file size
+  - optional sha256
+- When all configured sources fail, the installer returns a clear fallback message instructing the user to save a manual `ccswitchPath`.
+- `direct_zip` is represented in the schema for future compatibility, but V0.4 still tells the user to extract manually and save a path instead of pretending full zip installation is done.
+
+## TODO
+
+- Confirm an official, stable, auditable ccSwitch release/download URL before shipping any non-empty default source list.
+- Add real archive extraction only after the source format and trust boundary are confirmed.
+
+## PUA Phase Review
+
+- `pua` available: yes
+- Key reminders adopted:
+  - Do not fill in unverified release URLs just to look complete.
+  - Do not use unknown third-party accelerators.
+  - Do not drift into database or Provider writes.
+  - Keep “all sources failed -> manual path fallback” explicit and real.
+- Self-check result:
+  - Skipped validation: no
+  - Drifted outside commit 4 scope: no
+  - Added unknown accelerator: no
+  - Hard-coded uncertain official URL: no
+  - Touched database or Provider: no
+  - Blocked future V0.5 work: no
   - Touched database or Provider: no
   - Launched GUI during detection: no
   - Added node client logic: no

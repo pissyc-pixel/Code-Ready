@@ -30,11 +30,33 @@ pub struct InstallNetworkConfig {
     pub custom_npm_registry: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CcSwitchDownloadSourceKind {
+    DirectExe,
+    DirectZip,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CcSwitchDownloadSource {
+    pub name: String,
+    pub url: String,
+    pub priority: i32,
+    pub enabled: bool,
+    pub kind: CcSwitchDownloadSourceKind,
+    pub sha256: Option<String>,
+    pub min_file_size_bytes: Option<u64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
     pub install_network: InstallNetworkConfig,
+    #[serde(default)]
     pub ccswitch_path: Option<String>,
+    #[serde(default)]
+    pub ccswitch_download_sources: Vec<CcSwitchDownloadSource>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -51,6 +73,7 @@ pub struct InstallNetworkPatch {
 pub struct AppConfigPatch {
     pub install_network: Option<InstallNetworkPatch>,
     pub ccswitch_path: Option<String>,
+    pub ccswitch_download_sources: Option<Vec<CcSwitchDownloadSource>>,
 }
 
 impl Default for AppConfig {
@@ -63,6 +86,7 @@ impl Default for AppConfig {
                 custom_npm_registry: None,
             },
             ccswitch_path: None,
+            ccswitch_download_sources: Vec::new(),
         }
     }
 }
@@ -103,6 +127,9 @@ pub fn update_config(patch: AppConfigPatch) -> Result<AppConfig, String> {
             Some(trimmed.to_string())
         };
     }
+    if let Some(ccswitch_download_sources) = patch.ccswitch_download_sources {
+        config.ccswitch_download_sources = ccswitch_download_sources;
+    }
     write_config(&config)?;
     Ok(config)
 }
@@ -139,6 +166,7 @@ mod tests {
         assert!(json.get("pipIndexMode").is_none());
         assert_eq!(json["installNetwork"]["mode"], "none");
         assert!(json.get("ccswitchPath").is_some());
+        assert_eq!(json["ccswitchDownloadSources"], serde_json::json!([]));
     }
 
     #[test]
@@ -152,6 +180,15 @@ mod tests {
                 custom_npm_registry: None,
             }),
             ccswitch_path: Some("C:\\Program Files\\ccswitch\\ccswitch.exe".to_string()),
+            ccswitch_download_sources: Some(vec![CcSwitchDownloadSource {
+                name: "Official TODO".to_string(),
+                url: "https://example.invalid/ccswitch.exe".to_string(),
+                priority: 10,
+                enabled: true,
+                kind: CcSwitchDownloadSourceKind::DirectExe,
+                sha256: None,
+                min_file_size_bytes: Some(1024),
+            }]),
         };
 
         let mut merged = config;
@@ -169,6 +206,9 @@ mod tests {
         if let Some(ccswitch_path) = patch.ccswitch_path {
             merged.ccswitch_path = Some(ccswitch_path);
         }
+        if let Some(ccswitch_download_sources) = patch.ccswitch_download_sources {
+            merged.ccswitch_download_sources = ccswitch_download_sources;
+        }
 
         assert!(matches!(
             merged.install_network.mode,
@@ -182,6 +222,8 @@ mod tests {
             merged.ccswitch_path.as_deref(),
             Some("C:\\Program Files\\ccswitch\\ccswitch.exe")
         );
+        assert_eq!(merged.ccswitch_download_sources.len(), 1);
+        assert_eq!(merged.ccswitch_download_sources[0].priority, 10);
     }
 
     #[test]

@@ -66,6 +66,7 @@ describe("App", () => {
         npmRegistry: "default",
       },
       ccswitchPath: undefined,
+      ccswitchDownloadSources: [],
     });
     isAdminMock.mockResolvedValue(true);
   });
@@ -186,6 +187,7 @@ describe("App", () => {
         proxyUrl: "http://127.0.0.1:7890",
         npmRegistry: "npmmirror",
       },
+      ccswitchDownloadSources: [],
     });
     detectAllToolsMock.mockResolvedValue([]);
 
@@ -319,6 +321,7 @@ describe("App", () => {
         npmRegistry: "default",
       },
       ccswitchPath: "C:\\Program Files\\ccswitch\\ccswitch.exe",
+      ccswitchDownloadSources: [],
     });
     detectToolMock.mockResolvedValue({
       id: "ccswitch",
@@ -369,6 +372,32 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(openCcSwitchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("shows the configured ccSwitch download source count", async () => {
+    getConfigMock.mockResolvedValue({
+      installNetwork: {
+        mode: "none",
+        npmRegistry: "default",
+      },
+      ccswitchPath: undefined,
+      ccswitchDownloadSources: [
+        {
+          name: "Official TODO",
+          url: "https://example.invalid/ccswitch.exe",
+          priority: 10,
+          enabled: true,
+          kind: "direct_exe",
+        },
+      ],
+    });
+    detectAllToolsMock.mockResolvedValue([]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Configured download sources: 1/)).toBeInTheDocument();
     });
   });
 });

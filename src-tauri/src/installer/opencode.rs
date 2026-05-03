@@ -60,6 +60,7 @@ mod tests {
                 custom_npm_registry: None,
             },
             ccswitch_path: None,
+            ccswitch_download_sources: Vec::new(),
         },
             false,
         )

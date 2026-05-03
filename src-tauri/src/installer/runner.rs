@@ -14,7 +14,7 @@ use crate::{
     config::AppConfig,
     detector::ToolInstallStatus,
     detector::{self, DetectResultEvent},
-    installer::{claude, codex, git, node, opencode, python,
+    installer::{ccswitch, claude, codex, git, node, opencode, python,
         now_timestamp, InstallPhase, InstallProgressEvent, InstallResult, InstallStatusEvent,
     },
     logger::redact::redact_line,
@@ -36,6 +36,7 @@ pub struct InstallCommandSpec {
 
 pub fn build_command_spec(tool_id: &str, config: &AppConfig) -> Result<InstallCommandSpec, String> {
     match tool_id {
+        "ccswitch" => ccswitch::command_spec(config),
         "claude" => claude::command_spec(config),
         "codex" => codex::command_spec(config),
         "git" => Ok(git::command_spec(config)),

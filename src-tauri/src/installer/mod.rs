@@ -1,4 +1,5 @@
 pub mod claude;
+pub mod ccswitch;
 pub mod codex;
 pub mod git;
 pub mod node;
