@@ -14,9 +14,9 @@ use crate::{
     config::AppConfig,
     detector::ToolInstallStatus,
     detector::{self, DetectResultEvent},
-    installer::{ccswitch, claude, codex, git, node, opencode, python,
-        now_timestamp, InstallPhase, InstallProgressEvent, InstallRequestMode, InstallResult,
-        InstallStatusEvent,
+    installer::{
+        ccswitch, claude, codex, git, node, now_timestamp, opencode, python, InstallPhase,
+        InstallProgressEvent, InstallRequestMode, InstallResult, InstallStatusEvent,
     },
     logger::redact::redact_line,
     process::kill_tree::{kill_process_tree, KillTreeOutcome},
@@ -148,7 +148,11 @@ pub fn spawn_install_runner(app: AppHandle, tool_id: String, spec: InstallComman
     });
 }
 
-fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -> Result<(), String> {
+fn run_install_task(
+    app: AppHandle,
+    tool_id: String,
+    spec: InstallCommandSpec,
+) -> Result<(), String> {
     let state = app.state::<AppState>();
     let logger = TaskLogger::new(&tool_id)?;
     let started_at = Instant::now();
@@ -175,6 +179,8 @@ fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -
             timestamp: now_timestamp(),
         },
     )?;
+    state.update_install_phase(&tool_id, InstallPhase::Running)?;
+    emit_status(&app, running_status_event(&tool_id))?;
 
     let stdout_handle = child.stdout.take().map(|stdout| {
         spawn_stream_reader(
@@ -232,71 +238,103 @@ fn run_install_task(app: AppHandle, tool_id: String, spec: InstallCommandSpec) -
     }
 
     let duration_ms = started_at.elapsed().as_millis() as u64;
-    let final_event = if timed_out {
-        InstallStatusEvent {
-            tool_id: tool_id.clone(),
-            status: ToolInstallStatus::InstallFailed,
-            phase: InstallPhase::Timeout,
-            error_message: Some("install task timed out".to_string()),
-            suggestion: spec.failure_suggestion.clone(),
-            result: Some(InstallResult {
-                exit_code,
-                duration_ms: Some(duration_ms),
-            }),
-            timestamp: now_timestamp(),
-        }
-    } else if cancel_effective {
-        InstallStatusEvent {
-            tool_id: tool_id.clone(),
-            status: ToolInstallStatus::Missing,
-            phase: InstallPhase::Cancelled,
-            error_message: None,
-            suggestion: Some("瀹夎宸插彇娑堬紝鍙互閲嶆柊鍚姩銆?".to_string()),
-            result: Some(InstallResult {
-                exit_code,
-                duration_ms: Some(duration_ms),
-            }),
-            timestamp: now_timestamp(),
-        }
-    } else if exit_code == Some(0) {
-        InstallStatusEvent {
-            tool_id: tool_id.clone(),
-            status: ToolInstallStatus::Installed,
-            phase: InstallPhase::Success,
-            error_message: None,
-            suggestion: spec.success_suggestion.clone(),
-            result: Some(InstallResult {
-                exit_code,
-                duration_ms: Some(duration_ms),
-            }),
-            timestamp: now_timestamp(),
-        }
-    } else {
-        InstallStatusEvent {
-            tool_id: tool_id.clone(),
-            status: ToolInstallStatus::InstallFailed,
-            phase: InstallPhase::Failed,
-            error_message: Some("install task exited with a non-zero code".to_string()),
-            suggestion: spec.failure_suggestion.clone(),
-            result: Some(InstallResult {
-                exit_code,
-                duration_ms: Some(duration_ms),
-            }),
-            timestamp: now_timestamp(),
-        }
-    };
+    let cancel_requested = state.is_cancel_requested(&tool_id)?;
+    let final_event = choose_final_status_event(
+        &tool_id,
+        exit_code,
+        timed_out,
+        cancel_requested,
+        cancel_effective,
+        duration_ms,
+        spec.success_suggestion.clone(),
+        spec.failure_suggestion.clone(),
+    );
 
     state.clear_install(&tool_id)?;
     emit_status(&app, final_event)?;
-    if exit_code == Some(0) && !timed_out && !cancel_effective {
-        emit_detection_results(&app, &spec.detect_after)?;
+    if exit_code == Some(0) && !timed_out && !cancel_requested && !cancel_effective {
+        let _ = emit_detection_results(&app, &spec.detect_after);
     }
     Ok(())
+}
+
+fn choose_final_status_event(
+    tool_id: &str,
+    exit_code: Option<i32>,
+    timed_out: bool,
+    cancel_requested: bool,
+    cancel_effective: bool,
+    duration_ms: u64,
+    success_suggestion: Option<String>,
+    failure_suggestion: Option<String>,
+) -> InstallStatusEvent {
+    let result = Some(InstallResult {
+        exit_code,
+        duration_ms: Some(duration_ms),
+    });
+
+    if cancel_requested || cancel_effective {
+        return InstallStatusEvent {
+            tool_id: tool_id.to_string(),
+            status: ToolInstallStatus::Missing,
+            phase: InstallPhase::Cancelled,
+            error_message: None,
+            suggestion: Some("Install was cancelled. Run install again when ready.".to_string()),
+            result,
+            timestamp: now_timestamp(),
+        };
+    }
+
+    if timed_out {
+        return InstallStatusEvent {
+            tool_id: tool_id.to_string(),
+            status: ToolInstallStatus::InstallFailed,
+            phase: InstallPhase::Timeout,
+            error_message: Some("install task timed out".to_string()),
+            suggestion: failure_suggestion,
+            result,
+            timestamp: now_timestamp(),
+        };
+    }
+
+    if exit_code == Some(0) {
+        return InstallStatusEvent {
+            tool_id: tool_id.to_string(),
+            status: ToolInstallStatus::Installed,
+            phase: InstallPhase::Success,
+            error_message: None,
+            suggestion: success_suggestion,
+            result,
+            timestamp: now_timestamp(),
+        };
+    }
+
+    InstallStatusEvent {
+        tool_id: tool_id.to_string(),
+        status: ToolInstallStatus::InstallFailed,
+        phase: InstallPhase::Failed,
+        error_message: Some("install task exited with a non-zero code".to_string()),
+        suggestion: failure_suggestion,
+        result,
+        timestamp: now_timestamp(),
+    }
 }
 
 fn emit_status(app: &AppHandle, event: InstallStatusEvent) -> Result<(), String> {
     app.emit("install:status", event)
         .map_err(|error| error.to_string())
+}
+
+fn running_status_event(tool_id: &str) -> InstallStatusEvent {
+    InstallStatusEvent {
+        tool_id: tool_id.to_string(),
+        status: ToolInstallStatus::Installing,
+        phase: InstallPhase::Running,
+        error_message: None,
+        suggestion: None,
+        result: None,
+        timestamp: now_timestamp(),
+    }
 }
 
 fn spawn_stream_reader<R>(
@@ -385,8 +423,9 @@ fn emit_detection_results(app: &AppHandle, tool_ids: &[String]) -> Result<(), St
 
 #[cfg(test)]
 mod tests {
-    use super::build_command_spec;
+    use super::{build_command_spec, choose_final_status_event, running_status_event};
     use crate::config::AppConfig;
+    use crate::installer::InstallPhase;
 
     #[test]
     fn supports_test_runner_specs() {
@@ -394,5 +433,78 @@ mod tests {
             .expect("support test command");
         assert_eq!(spec.program, "powershell");
         assert!(!spec.args.is_empty());
+    }
+
+    #[test]
+    fn running_status_event_marks_tool_as_installing() {
+        let event = running_status_event("git");
+
+        assert_eq!(event.tool_id, "git");
+        assert_eq!(event.phase, InstallPhase::Running);
+        assert!(matches!(
+            event.status,
+            crate::detector::ToolInstallStatus::Installing
+        ));
+        assert!(event.result.is_none());
+    }
+
+    #[test]
+    fn final_status_prefers_cancelled_when_cancel_requested_races_with_success_exit() {
+        let event = choose_final_status_event("git", Some(0), false, true, false, 123, None, None);
+
+        assert_eq!(event.phase, InstallPhase::Cancelled);
+        assert!(matches!(
+            event.status,
+            crate::detector::ToolInstallStatus::Missing
+        ));
+        assert!(event.error_message.is_none());
+    }
+
+    #[test]
+    fn final_status_reports_timeout_before_regular_failure() {
+        let event = choose_final_status_event(
+            "git",
+            None,
+            true,
+            false,
+            false,
+            123,
+            None,
+            Some("install task timed out".to_string()),
+        );
+
+        assert_eq!(event.phase, InstallPhase::Timeout);
+        assert!(matches!(
+            event.status,
+            crate::detector::ToolInstallStatus::InstallFailed
+        ));
+        assert_eq!(
+            event.error_message.as_deref(),
+            Some("install task timed out")
+        );
+    }
+
+    #[test]
+    fn final_status_reports_failed_for_non_zero_exit() {
+        let event = choose_final_status_event(
+            "git",
+            Some(1),
+            false,
+            false,
+            false,
+            123,
+            None,
+            Some("install failed".to_string()),
+        );
+
+        assert_eq!(event.phase, InstallPhase::Failed);
+        assert!(matches!(
+            event.status,
+            crate::detector::ToolInstallStatus::InstallFailed
+        ));
+        assert_eq!(
+            event.error_message.as_deref(),
+            Some("install task exited with a non-zero code")
+        );
     }
 }

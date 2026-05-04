@@ -1662,3 +1662,151 @@ Summary:
   - Modified system proxy: no
   - Executed `npm config set registry`: no
   - Added one-click install: no
+
+# Code Review Stabilization Fix 1 Validation
+
+## Time
+
+2026-05-04 21:32 (Asia/Shanghai)
+
+## Commit Goal
+
+- Commit target: `fix: stabilize install status and cancellation flow`
+- Phase: Code Review & Stabilization Phase
+- PRD source: `D:\aicoding\ai_coding_环境助手_prd (5).md`
+- PRD title/version: `AI Coding environment assistant PRD v2.2`
+
+## Three-role Flow
+
+- Plan Agent: real subagent used. Planned only P1-1 scope.
+- Execute Agent: real subagent used. It initially drifted by running full-crate `cargo fmt`, causing unrelated formatting/stat noise. PUA check triggered; non-target formatting noise was removed and the implementation was manually narrowed back to the P1-1 scope.
+- Verify Agent: real subagent used. It found frontend verification was blocked by PowerShell execution policy and sandbox `spawn EPERM`. Verification was rerun serially with approved elevated commands.
+
+## PUA / findskills / superpower Record
+
+- `pua` available: yes.
+- PUA checkpoints used:
+  - commit start
+  - implementation drift
+  - validation failure
+  - before commit readiness review
+- `findskills` available: yes. Used as process guidance after repeated frontend build/test command failures.
+- `superpower` tool unavailable.
+- Note: superpower unavailable. Already switched to findskills + repository docs + conservative implementation.
+
+## Scope
+
+- `src-tauri/src/commands/install.rs`
+- `src-tauri/src/installer/runner.rs`
+- `src-tauri/src/process/kill_tree.rs`
+- `src-tauri/src/state.rs`
+
+## Changes
+
+- `cancel_install` now records cancel intent before attempting to kill the process tree.
+- The runner emits `install:status` with `phase=running` after the process starts.
+- Final status selection now prefers `cancelled` when cancel intent races with a natural process exit.
+- Successful, failed, cancelled, and timeout final paths still clear the install lock before final status emission.
+- `taskkill` process-not-found output is treated as `AlreadyExited`, including common English and Chinese output patterns.
+- Added focused Rust tests for running status, final-state selection, cancel intent preservation, and taskkill process-not-found handling.
+
+## Validation Commands
+
+### Frontend test
+
+Command:
+
+```powershell
+cmd.exe /c npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 9 passed
+```
+
+### Frontend build
+
+Command:
+
+```powershell
+cmd.exe /c npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist assets generated
+built in 813ms
+```
+
+### Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile target(s) in 1.98s
+```
+
+### Rust tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+57 tests passed
+0 failed
+```
+
+## Validation Noise Handling
+
+- `npx vitest` through PowerShell failed because `npx.ps1` is blocked by execution policy. The same required command was run through `cmd.exe /c npx ...`.
+- Initial sandboxed Vitest/Vite runs failed with `spawn EPERM`; approved elevated reruns passed.
+- Two `npm run build` attempts timed out due stale `node.exe` processes from earlier failed verification. Only verification-spawned node processes were stopped, then the fixed build command passed.
+- `git status --short` may show line-ending/stat noise for some Rust files, but `git diff --name-only` confirms actual content changes are limited to the four scope files above.
+
+## PRD Constraint Check
+
+- Skipped validation: no.
+- Used mock instead of real logic: no.
+- Drifted outside P1-1 final scope: no.
+- Converted install invoke into long-running blocking invoke: no.
+- Saved/read/uploaded API Key: no.
+- Modified Provider configuration: no.
+- Took over system proxy: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install: no.
+- Added automatic outdated detection: no.
+- Removed PRD core functionality to pass build: no.

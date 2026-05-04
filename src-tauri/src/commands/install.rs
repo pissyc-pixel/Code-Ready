@@ -62,12 +62,13 @@ pub async fn cancel_install(
         .snapshot_install()?
         .ok_or_else(|| "no running install task".to_string())?;
 
+    state.mark_cancel_requested(&snapshot.tool_id)?;
+
     match snapshot.pid {
         Some(pid) => match kill_process_tree(pid)? {
-            KillTreeOutcome::Killed => state.mark_cancel_requested(&snapshot.tool_id)?,
-            KillTreeOutcome::AlreadyExited => {}
+            KillTreeOutcome::Killed | KillTreeOutcome::AlreadyExited => {}
         },
-        None => state.mark_cancel_requested(&snapshot.tool_id)?,
+        None => {}
     }
     Ok(())
 }
