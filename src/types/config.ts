@@ -9,7 +9,7 @@ export type InstallNetworkConfig = {
   customNpmRegistry?: string;
 };
 
-export type CcSwitchDownloadSourceKind = "direct_exe" | "direct_zip";
+export type CcSwitchDownloadSourceKind = "direct_exe";
 
 export type CcSwitchDownloadSource = {
   name: string;

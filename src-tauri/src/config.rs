@@ -208,6 +208,7 @@ fn sanitize_config(mut config: AppConfig) -> AppConfig {
     config.ccswitch_download_sources = config
         .ccswitch_download_sources
         .into_iter()
+        .filter(|source| matches!(source.kind, CcSwitchDownloadSourceKind::DirectExe))
         .map(|mut source| {
             source.name = source.name.trim().to_string();
             source.url = source.url.trim().to_string();
@@ -543,6 +544,55 @@ mod tests {
             config.ccswitch_download_sources[0].url,
             "https://example.com/ccswitch.exe"
         );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sanitize_filters_direct_zip_download_sources_before_writing() {
+        let dir = unique_test_dir("ccswitch-direct-zip-filter");
+        fs::create_dir_all(&dir).expect("create temp config dir");
+        let path = dir.join("config.json");
+        write_config_to_path(&path, &AppConfig::default()).expect("write default config");
+
+        let config = update_config_at_path(
+            &path,
+            AppConfigPatch {
+                install_network: None,
+                ccswitch_path: None,
+                ccswitch_download_sources: Some(vec![
+                    CcSwitchDownloadSource {
+                        name: "Zip".to_string(),
+                        url: "https://example.com/ccswitch.zip".to_string(),
+                        priority: 1,
+                        enabled: true,
+                        kind: CcSwitchDownloadSourceKind::DirectZip,
+                        sha256: None,
+                        min_file_size_bytes: None,
+                    },
+                    CcSwitchDownloadSource {
+                        name: "Exe".to_string(),
+                        url: "https://example.com/ccswitch.exe".to_string(),
+                        priority: 2,
+                        enabled: true,
+                        kind: CcSwitchDownloadSourceKind::DirectExe,
+                        sha256: None,
+                        min_file_size_bytes: None,
+                    },
+                ]),
+            },
+        )
+        .expect("direct_zip sources should be filtered, not rejected");
+
+        assert_eq!(config.ccswitch_download_sources.len(), 1);
+        assert!(matches!(
+            config.ccswitch_download_sources[0].kind,
+            CcSwitchDownloadSourceKind::DirectExe
+        ));
+
+        let normalized = fs::read_to_string(&path).expect("read normalized config");
+        assert!(!normalized.contains("direct_zip"));
+        assert!(normalized.contains("direct_exe"));
 
         let _ = fs::remove_dir_all(dir);
     }

@@ -48,7 +48,11 @@ pub fn command_spec(config: &AppConfig) -> Result<InstallCommandSpec, String> {
 pub fn ordered_enabled_sources(sources: &[CcSwitchDownloadSource]) -> Vec<CcSwitchDownloadSource> {
     let mut ordered = sources
         .iter()
-        .filter(|source| source.enabled && !source.url.trim().is_empty())
+        .filter(|source| {
+            source.enabled
+                && !source.url.trim().is_empty()
+                && matches!(source.kind, CcSwitchDownloadSourceKind::DirectExe)
+        })
         .cloned()
         .collect::<Vec<_>>();
     ordered.sort_by_key(|source| source.priority);
@@ -71,7 +75,7 @@ New-Item -ItemType Directory -Force -Path $targetDir | Out-Null; \
 $sources = @({source_entries}); \
 foreach ($source in $sources) {{ \
   Write-Output (\"Trying source [{{0}}] priority={{1}}\" -f $source.Name, $source.Priority); \
-  $downloadPath = Join-Path $targetDir (\"ccswitch-\" + $source.Priority + (if ($source.Kind -eq 'direct_zip') {{ '.zip' }} else {{ '.exe' }})); \
+  $downloadPath = Join-Path $targetDir (\"ccswitch-\" + $source.Priority + '.exe'); \
   try {{ \
     Invoke-WebRequest -Uri $source.Url -OutFile $downloadPath -UseBasicParsing; \
     if (-not (Test-Path $downloadPath)) {{ throw 'downloaded file was not created'; }} \
@@ -81,12 +85,11 @@ foreach ($source in $sources) {{ \
       $actualHash = (Get-FileHash -Algorithm SHA256 -Path $downloadPath).Hash.ToLowerInvariant(); \
       if ($actualHash -ne $source.Sha256.ToLowerInvariant()) {{ throw (\"sha256 mismatch: {{0}}\" -f $actualHash); }} \
     }} \
-    if ($source.Kind -eq 'direct_zip') {{ throw 'direct_zip sources are not supported in V0.4; extract manually and save ccswitchPath'; }} \
     Copy-Item -Force $downloadPath $finalPath; \
     Write-Output (\"Source [{{0}}] succeeded: {{1}}\" -f $source.Name, $finalPath); \
     exit 0; \
   }} catch {{ \
-    Write-Error (\"Source [{{0}}] failed: {{1}}\" -f $source.Name, $_.Exception.Message); \
+    Write-Output (\"Source [{{0}}] failed: {{1}}\" -f $source.Name, $_.Exception.Message); \
   }} \
 }}; \
 throw 'All configured ccSwitch sources failed. Please save a manual ccSwitch path.'",
@@ -101,17 +104,12 @@ fn build_source_entry(source: &CcSwitchDownloadSource) -> String {
         .min_file_size_bytes
         .unwrap_or(DEFAULT_MIN_FILE_SIZE_BYTES);
     let sha256 = source.sha256.clone().unwrap_or_default();
-    let kind = match source.kind {
-        CcSwitchDownloadSourceKind::DirectExe => "direct_exe",
-        CcSwitchDownloadSourceKind::DirectZip => "direct_zip",
-    };
 
     format!(
-        "@{{ Name='{name}'; Url='{url}'; Priority={priority}; Kind='{kind}'; Sha256='{sha256}'; MinFileSizeBytes={min_file_size_bytes} }}",
+        "@{{ Name='{name}'; Url='{url}'; Priority={priority}; Sha256='{sha256}'; MinFileSizeBytes={min_file_size_bytes} }}",
         name = ps_literal(&source.name),
         url = ps_literal(&source.url),
         priority = source.priority,
-        kind = kind,
         sha256 = ps_literal(&sha256),
         min_file_size_bytes = min_file_size_bytes
     )
@@ -134,13 +132,19 @@ mod tests {
     use crate::config::{AppConfig, CcSwitchDownloadSource, CcSwitchDownloadSourceKind};
     use std::path::PathBuf;
 
-    fn source(name: &str, priority: i32, enabled: bool, url: &str) -> CcSwitchDownloadSource {
+    fn source(
+        name: &str,
+        priority: i32,
+        enabled: bool,
+        url: &str,
+        kind: CcSwitchDownloadSourceKind,
+    ) -> CcSwitchDownloadSource {
         CcSwitchDownloadSource {
             name: name.to_string(),
             url: url.to_string(),
             priority,
             enabled,
-            kind: CcSwitchDownloadSourceKind::DirectExe,
+            kind,
             sha256: None,
             min_file_size_bytes: Some(1024),
         }
@@ -149,11 +153,41 @@ mod tests {
     #[test]
     fn orders_enabled_sources_by_priority() {
         let ordered = ordered_enabled_sources(&[
-            source("third", 30, true, "https://example.invalid/3.exe"),
-            source("disabled", 5, false, "https://example.invalid/disabled.exe"),
-            source("second", 20, true, "https://example.invalid/2.exe"),
-            source("first", 10, true, "https://example.invalid/1.exe"),
-            source("blank", 1, true, " "),
+            source(
+                "third",
+                30,
+                true,
+                "https://example.invalid/3.exe",
+                CcSwitchDownloadSourceKind::DirectExe,
+            ),
+            source(
+                "disabled",
+                5,
+                false,
+                "https://example.invalid/disabled.exe",
+                CcSwitchDownloadSourceKind::DirectExe,
+            ),
+            source(
+                "second",
+                20,
+                true,
+                "https://example.invalid/2.exe",
+                CcSwitchDownloadSourceKind::DirectExe,
+            ),
+            source(
+                "first",
+                10,
+                true,
+                "https://example.invalid/1.exe",
+                CcSwitchDownloadSourceKind::DirectExe,
+            ),
+            source(
+                "blank",
+                1,
+                true,
+                " ",
+                CcSwitchDownloadSourceKind::DirectExe,
+            ),
         ]);
 
         assert_eq!(ordered.len(), 3);
@@ -169,10 +203,65 @@ mod tests {
     }
 
     #[test]
+    fn filters_direct_zip_sources_from_enabled_order() {
+        let ordered = ordered_enabled_sources(&[
+            source(
+                "zip",
+                1,
+                true,
+                "https://example.invalid/ccswitch.zip",
+                CcSwitchDownloadSourceKind::DirectZip,
+            ),
+            source(
+                "exe",
+                2,
+                true,
+                "https://example.invalid/ccswitch.exe",
+                CcSwitchDownloadSourceKind::DirectExe,
+            ),
+        ]);
+
+        assert_eq!(ordered.len(), 1);
+        assert_eq!(ordered[0].name, "exe");
+        assert!(matches!(
+            ordered[0].kind,
+            CcSwitchDownloadSourceKind::DirectExe
+        ));
+    }
+
+    #[test]
+    fn command_spec_falls_back_to_manual_path_when_only_direct_zip_sources_exist() {
+        let mut config = AppConfig::default();
+        config.ccswitch_download_sources = vec![source(
+            "zip",
+            1,
+            true,
+            "https://example.invalid/ccswitch.zip",
+            CcSwitchDownloadSourceKind::DirectZip,
+        )];
+
+        let error = command_spec(&config).expect_err("direct_zip should be filtered out");
+
+        assert!(error.contains("manual ccSwitch path"));
+    }
+
+    #[test]
     fn generated_script_keeps_priority_order() {
         let ordered = ordered_enabled_sources(&[
-            source("b", 20, true, "https://example.invalid/b.exe"),
-            source("a", 10, true, "https://example.invalid/a.exe"),
+            source(
+                "b",
+                20,
+                true,
+                "https://example.invalid/b.exe",
+                CcSwitchDownloadSourceKind::DirectExe,
+            ),
+            source(
+                "a",
+                10,
+                true,
+                "https://example.invalid/a.exe",
+                CcSwitchDownloadSourceKind::DirectExe,
+            ),
         ]);
         let script = build_download_script(&ordered, &PathBuf::from("C:\\temp\\ccswitch"));
 
@@ -180,5 +269,40 @@ mod tests {
         let second_index = script.find("https://example.invalid/b.exe").expect("second source");
         assert!(first_index < second_index);
         assert!(script.contains("Please save a manual ccSwitch path."));
+    }
+
+    #[test]
+    fn generated_script_contains_only_direct_exe_download_behavior() {
+        let ordered = ordered_enabled_sources(&[source(
+            "exe",
+            10,
+            true,
+            "https://example.invalid/ccswitch.exe",
+            CcSwitchDownloadSourceKind::DirectExe,
+        )]);
+        let script = build_download_script(&ordered, &PathBuf::from("C:\\temp\\ccswitch"));
+
+        assert!(!script.contains("direct_zip"));
+        assert!(!script.contains(".zip"));
+        assert!(!script.contains("$source.Kind"));
+        assert!(!script.contains("not supported"));
+        assert!(script.contains(".exe"));
+    }
+
+    #[test]
+    fn generated_script_logs_single_source_failure_without_write_error() {
+        let ordered = ordered_enabled_sources(&[source(
+            "exe",
+            10,
+            true,
+            "https://example.invalid/ccswitch.exe",
+            CcSwitchDownloadSourceKind::DirectExe,
+        )]);
+        let script = build_download_script(&ordered, &PathBuf::from("C:\\temp\\ccswitch"));
+
+        assert!(script.contains("Source [{0}] failed"));
+        assert!(!script.contains("Write-Error"));
+        assert!(script.contains("foreach ($source in $sources)"));
+        assert!(script.contains("All configured ccSwitch sources failed"));
     }
 }

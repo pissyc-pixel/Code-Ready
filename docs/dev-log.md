@@ -2298,3 +2298,294 @@ Summary:
 - Removed PRD core functionality to pass build: no.
 - Commit before running acceptance commands: no.
 - Commit should include untracked PRD file: no.
+
+## Commit Result
+
+- Commit hash: `76cc2ba`
+- Commit message: `fix: harden app config recovery and validation`
+- Post-commit log:
+
+```text
+76cc2ba fix: harden app config recovery and validation
+d37b6fe fix: expand log redaction coverage
+0a3f506 fix: stabilize install status and cancellation flow
+4b1e93e feat: add reinstall and latest install actions
+fe0652f feat: add ccswitch download source support
+```
+
+# P1-4 Execute Agent Implementation
+
+## Time
+
+2026-05-04 22:12 (Asia/Shanghai)
+
+## Commit Goal
+
+- Commit target: `fix: align ccswitch download source behavior`
+- Phase: P1-4 Execute Agent implementation
+- Selected option: B, disable `direct_zip` pseudo support and keep only implemented `direct_exe` behavior.
+
+## PUA Start Check
+
+- `pua` invoked by Plan/Execute workflow before implementation.
+- Start reminders adopted:
+  - do not leave a schema that claims `direct_zip` is supported when installer behavior does not implement zip extraction
+  - do not add unknown third-party download sources
+  - keep default ccSwitch download sources empty
+  - do not read/write ccSwitch DB
+  - do not write Provider config
+  - do not save/read/upload API Key
+  - keep writes limited to P1-4 scope files
+  - do not stage or commit
+
+## Scope
+
+- `src-tauri/src/installer/ccswitch.rs`
+- `src-tauri/src/config.rs`
+- `src/types/config.ts`
+- `docs/dev-log.md`
+
+## Changes
+
+- `ordered_enabled_sources()` now filters to enabled, non-empty, `DirectExe` sources only.
+- Generated PowerShell download script now downloads `.exe` only and no longer emits `$source.Kind`, `.zip`, or `direct_zip` branches.
+- Single-source failures now use `Write-Output` instead of `Write-Error`, so `$ErrorActionPreference = 'Stop'` does not stop the retry loop before the next source.
+- All sources empty, filtered, or failed still results in the manual ccSwitch path fallback message.
+- Frontend `CcSwitchDownloadSourceKind` type now exposes only `"direct_exe"`.
+- Config sanitization filters historical `DirectZip` sources before validation/write-back, so old `direct_zip` entries are not persisted.
+- No default download source was added.
+
+## Validation
+
+### Targeted ccSwitch tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml ccswitch
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+13 passed
+0 failed
+```
+
+### Targeted config tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml config
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+13 passed
+0 failed
+```
+
+### Frontend test
+
+Command:
+
+```powershell
+cmd.exe /c npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed with elevated execution because sandboxed Vite/esbuild can fail with `spawn EPERM`.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 9 passed
+```
+
+### Frontend build
+
+Command:
+
+```powershell
+cmd.exe /c npm run build
+```
+
+Result:
+
+Passed with elevated execution.
+
+Summary:
+
+```text
+38 modules transformed
+built in 765ms
+```
+
+### Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile target(s) in 1.12s
+```
+
+### Rust full test suite
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+71 passed
+0 failed
+```
+
+## PUA Pre-Commit Check
+
+- Node: before P1-4 commit.
+- Skipped validation: no.
+- Used mock instead of real logic: no.
+- Left `direct_zip` pseudo support active: no.
+- Added unknown third-party GitHub accelerator/default source: no.
+- Default source can be empty: yes.
+- Manual path fallback after no usable sources/all source failures: yes.
+- Saved/read/uploaded API Key: no.
+- Modified Provider configuration: no.
+- Took over system proxy: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install: no.
+- Added automatic outdated detection: no.
+- Removed PRD core functionality to pass build: no.
+- Commit should include untracked PRD file: no.
+
+# P1-4 Execute Agent Implementation
+
+## Time
+
+2026-05-04 22:10 (Asia/Shanghai)
+
+## Commit Goal
+
+- Commit target: `fix: align ccswitch download source behavior`
+- Selected plan option: B, disable/remove `direct_zip` pseudo-support and keep only real `direct_exe`.
+
+## PUA Start Check
+
+- Start reminders adopted:
+  - keep writes limited to `src-tauri/src/installer/ccswitch.rs`, `src-tauri/src/config.rs`, `src/types/config.ts`, and `docs/dev-log.md`
+  - use TDD before implementation
+  - do not run `cargo fmt` or whole-repo formatting
+  - do not change log redaction, install status flow, AppConfig recovery logic itself, frontend V0.5 features, Provider, API keys, or ccSwitch DB behavior
+  - do not stage or commit
+
+## Scope
+
+- `src-tauri/src/installer/ccswitch.rs`
+- `src-tauri/src/config.rs`
+- `src/types/config.ts`
+- `docs/dev-log.md`
+
+## Changes
+
+- `ordered_enabled_sources` now returns only enabled, non-blank URL, `DirectExe` sources.
+- ccSwitch download script now always downloads `.exe` files and no longer contains `$source.Kind`, `.zip`, `direct_zip`, or unsupported zip branches.
+- Per-source failure logging now uses non-terminating `Write-Output` inside `catch`, so `$ErrorActionPreference = 'Stop'` does not stop the loop before the next source.
+- If all sources are empty, filtered out, or fail, the installer still throws the existing manual ccSwitch path fallback message.
+- `sanitize_config` filters legacy `DirectZip` sources so old configs or patches do not keep writing `direct_zip` back to disk.
+- Frontend config type now exposes `CcSwitchDownloadSourceKind` as `"direct_exe"` only.
+
+## TDD Record
+
+- Red test command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml ccswitch -- --nocapture
+```
+
+- Red result:
+
+```text
+9 passed; 4 failed
+Failures showed direct_zip still entered source ordering, command_spec, script branches, and Write-Error failure logging.
+```
+
+- Additional red test command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml sanitize_filters_direct_zip -- --nocapture
+```
+
+- Additional red result:
+
+```text
+0 passed; 1 failed
+Failure showed sanitize_config still wrote direct_zip sources.
+```
+
+- Green test commands:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml ccswitch -- --nocapture
+
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml sanitize_filters_direct_zip -- --nocapture
+```
+
+- Green results:
+
+```text
+ccswitch filter: 13 passed; 0 failed
+sanitize filter: 1 passed; 0 failed
+```
+
+## Constraint Check
+
+- Skipped TDD: no.
+- Ran `cargo fmt`: no.
+- Modified log redaction: no.
+- Modified install status machine: no.
+- Modified AppConfig damage recovery logic itself: no.
+- Added default download source: no.
+- Used unknown third-party accelerator: no.
+- Read/wrote ccSwitch DB: no.
+- Wrote Provider: no.
+- Saved API Key: no.
+- Added V0.5 feature work: no.
+- Staged or committed: no.
