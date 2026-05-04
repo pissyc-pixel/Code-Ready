@@ -2056,3 +2056,245 @@ Summary:
 - Removed PRD core functionality to pass build: no.
 - Commit before running acceptance commands: no.
 - Commit should include untracked PRD file: no.
+
+## Commit Result
+
+- Commit hash: `d37b6fe`
+- Commit message: `fix: expand log redaction coverage`
+- Post-commit log:
+
+```text
+d37b6fe fix: expand log redaction coverage
+0a3f506 fix: stabilize install status and cancellation flow
+4b1e93e feat: add reinstall and latest install actions
+fe0652f feat: add ccswitch download source support
+794ec14 feat: add ccswitch path and launch support
+```
+
+# P1-3 Execute Agent Implementation
+
+## Time
+
+2026-05-04 21:59 (Asia/Shanghai)
+
+## Commit Goal
+
+- Commit target: `fix: harden app config recovery and validation`
+- Phase: P1-3 Execute Agent implementation
+
+## PUA Start Check
+
+- `pua` available: not re-read this turn; process reminders carried from Plan/Execute instruction set and checked before edits.
+- Start reminders adopted:
+  - keep writes limited to `src-tauri/src/config.rs` and `docs/dev-log.md`
+  - use TDD with path-based helpers to avoid real `%APPDATA%`
+  - do not run `cargo fmt` or whole-repo formatting
+  - do not change log redaction, install status flow, ccSwitch `direct_zip`, frontend, or V0.5 features
+  - do not stage or commit
+
+## Scope
+
+- `src-tauri/src/config.rs`
+- `docs/dev-log.md`
+
+## Changes
+
+- Added path-based config helpers for tests and shared implementation:
+  - `get_config_from_path(path)`
+  - `write_config_to_path(path, config)`
+  - `update_config_at_path(path, patch)`
+- `get_config()` still resolves `%APPDATA%\ai-coding-installer\config.json`.
+- Malformed `config.json` now recovers by:
+  - copying the corrupt file to `config.bak.YYYYMMDD-HHMMSS.json` in the same directory
+  - writing default config back to `config.json`
+  - returning default config instead of failing the command
+- Existing valid config is sanitized and written back, which removes unknown JSON fields such as API key, Provider, and `pipIndexMode`.
+- `customNpmRegistry` is trimmed and validated when present; `npmRegistry=custom` requires a valid custom URL.
+- ccSwitch download source URLs are trimmed and validated when source list is provided; an empty default list remains valid.
+- URL validation is conservative and offline-only:
+  - allowed schemes: `http://`, `https://`
+  - host must be non-empty
+  - userinfo credentials are rejected
+
+## TDD Record
+
+- Red test command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml config::tests -- --nocapture
+```
+
+- Red result:
+
+```text
+Compilation failed because get_config_from_path, write_config_to_path, and update_config_at_path did not exist yet.
+```
+
+- Green test command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml config::tests -- --nocapture
+```
+
+- Green result:
+
+```text
+8 passed; 0 failed
+```
+
+## Constraint Check
+
+- Skipped TDD: no.
+- Ran `cargo fmt`: no.
+- Modified log redaction: no.
+- Modified install status machine: no.
+- Modified ccSwitch `direct_zip`: no.
+- Modified frontend: no.
+- Added V0.5 feature work: no.
+- Added/saved API Key, Provider, or `pipIndexMode`: no.
+- Staged or committed: no.
+
+## Main Flow Review Adjustment
+
+- Tightened URL validation to reject whitespace anywhere in the URL, not only in the authority/host section.
+- Tightened backup test coverage to assert the exact `config.bak.YYYYMMDD-HHMMSS.json` filename shape.
+- Scope remains limited to `src-tauri/src/config.rs` and `docs/dev-log.md`.
+
+## PUA Implementation Complete Check
+
+- Node: after P1-3 implementation and main-flow review adjustment.
+- Skipped validation: no; focused config tests and full Rust tests were run by Execute Agent, and full fixed validation is still pending Verify Agent.
+- Used mock instead of real logic: no; config recovery and validation are implemented in Rust config loading/update paths.
+- Drifted from PRD: no.
+- Saved/read/uploaded API Key: no new AppConfig fields; unknown `apiKey`/Provider/`pipIndexMode` JSON is normalized out.
+- Modified Provider configuration: no.
+- Took over system proxy: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install: no.
+- Added automatic outdated detection: no.
+- Scope too large: no; diff is limited to `src-tauri/src/config.rs` and `docs/dev-log.md`.
+- Commit readiness: pending Verify Agent full acceptance commands and `git diff` review.
+
+# P1-3 Validation
+
+## Time
+
+2026-05-04 22:02 (Asia/Shanghai)
+
+## Main Process Validation
+
+### Targeted Rust config tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml config::tests
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+9 passed
+0 failed
+```
+
+### Frontend test
+
+Command:
+
+```powershell
+cmd.exe /c npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed with elevated execution because sandboxed Vite/esbuild can fail with `spawn EPERM`.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 9 passed
+```
+
+### Frontend build
+
+Command:
+
+```powershell
+cmd.exe /c npm run build
+```
+
+Result:
+
+Passed with elevated execution.
+
+Summary:
+
+```text
+38 modules transformed
+built in 763ms
+```
+
+### Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile target(s) in 1.31s
+```
+
+### Rust full test suite
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+66 passed
+0 failed
+```
+
+## PUA Pre-Commit Check
+
+- Node: before P1-3 commit.
+- Skipped validation: no.
+- Used mock instead of real logic: no.
+- Drifted outside P1-3 scope: no.
+- Converted install command into blocking invoke: no.
+- Saved/read/uploaded API Key: no new config fields; unknown API key-like fields are normalized out.
+- Modified Provider configuration: no.
+- Took over system proxy: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install: no.
+- Added automatic outdated detection: no.
+- Removed PRD core functionality to pass build: no.
+- Commit before running acceptance commands: no.
+- Commit should include untracked PRD file: no.
