@@ -1810,3 +1810,249 @@ Summary:
 - Added one-click install: no.
 - Added automatic outdated detection: no.
 - Removed PRD core functionality to pass build: no.
+
+## Commit Result
+
+- Commit hash: `0a3f506`
+- Commit message: `fix: stabilize install status and cancellation flow`
+- Post-commit log:
+
+```text
+0a3f506 fix: stabilize install status and cancellation flow
+4b1e93e feat: add reinstall and latest install actions
+fe0652f feat: add ccswitch download source support
+794ec14 feat: add ccswitch path and launch support
+f9531d9 feat: implement claude codex opencode installers
+```
+
+# P1-2 Execute Agent Implementation
+
+## Time
+
+2026-05-04 21:41 (Asia/Shanghai)
+
+## Commit Goal
+
+- Commit target: `fix: expand log redaction coverage`
+- Phase: P1-2 Execute Agent implementation
+
+## PUA Start Check
+
+- `pua` available: yes.
+- Start reminders adopted:
+  - keep writes limited to `src-tauri/src/logger/redact.rs` and `docs/dev-log.md`
+  - use TDD: add failing Rust tests before implementation
+  - do not run `cargo fmt` or whole-repo formatting
+  - do not change install status flow, AppConfig, ccSwitch, frontend, or V0.5 features
+  - do not stage or commit
+
+## Scope
+
+- `src-tauri/src/logger/redact.rs`
+- `docs/dev-log.md`
+
+## Changes
+
+- Expanded `redact_line()` coverage for named API-key environment variables:
+  - `OPENAI_API_KEY=...`
+  - `ANTHROPIC_API_KEY=...`
+  - `GEMINI_API_KEY=...`
+  - `API_KEY=...`
+- Preserved existing redaction for:
+  - `Authorization: Bearer ...`
+  - `sk-...`
+  - `token=...`
+  - `api_key=...`
+- Added proxy URL credential redaction for:
+  - `http://user:pass@...`
+  - `https://user:pass@...`
+  - `socks5://user:pass@...`
+- Added focused Rust tests asserting sensitive originals do not appear in `redact_line()` output.
+
+## TDD Record
+
+- Red test command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml logger::redact -- --nocapture
+```
+
+- Red result:
+
+```text
+2 passed; 3 failed
+Failures showed OPENAI/ANTHROPIC/GEMINI env values and proxy credentials leaked.
+```
+
+- Green test command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml logger::redact -- --nocapture
+```
+
+- Green result:
+
+```text
+5 passed; 0 failed
+```
+
+## Constraint Check
+
+- Skipped TDD: no.
+- Ran `cargo fmt`: no.
+- Modified install status machine: no.
+- Modified AppConfig: no.
+- Modified ccSwitch: no.
+- Modified frontend: no.
+- Added V0.5 feature work: no.
+- Staged or committed: no.
+
+## PUA Implementation Complete Check
+
+- Node: after P1-2 implementation.
+- Skipped validation: no; focused Rust redaction tests and full Rust tests were run by Execute Agent.
+- Used mock instead of real logic: no; `redact_line()` rules were expanded directly.
+- Drifted from PRD: no.
+- Converted install command into blocking invoke: no.
+- Saved/read/uploaded API Key: no.
+- Modified Provider configuration: no.
+- Took over system proxy: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install: no.
+- Added automatic outdated detection: no.
+- Scope too large: no; diff is limited to `src-tauri/src/logger/redact.rs` and `docs/dev-log.md`.
+- Commit readiness: pending Verify Agent full acceptance commands and `git diff` review.
+
+# P1-2 Verify Agent Validation
+
+## Time
+
+2026-05-04 21:50 (Asia/Shanghai)
+
+## Verify Agent Result
+
+- Verify Agent checked the plan scope, `git diff --name-only`, `src-tauri/src/logger/redact.rs`, `docs/dev-log.md`, and the `runner.rs` stdout/stderr redaction call chain.
+- Verify Agent confirmed the runtime call chain still reads each stdout/stderr line, runs `redact_line(&line)`, emits `install:progress` with the redacted line, and writes the same redacted line to the log file.
+- Verify Agent attempted `cmd.exe /c npx vitest run src/App.test.tsx --reporter=verbose` inside the sandbox.
+- Sandbox result: failed before tests with Vite/esbuild `spawn EPERM`.
+- PUA failure check: do not treat sandbox process-spawn failure as an app regression; rerun the same required command with approved elevated execution.
+- findskills invoked: yes, used to confirm fallback skill workflow.
+- superpower unavailable. Already switched to findskills + repository docs + conservative implementation plan.
+
+## Main Process Completion Of Fixed Validation
+
+### Frontend test
+
+Command:
+
+```powershell
+cmd.exe /c npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed with elevated execution after sandbox `spawn EPERM`.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 9 passed
+```
+
+### Frontend build
+
+Command:
+
+```powershell
+cmd.exe /c npm run build
+```
+
+Result:
+
+Passed with elevated execution.
+
+Summary:
+
+```text
+38 modules transformed
+built in 801ms
+```
+
+### Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile target(s) in 1.19s
+```
+
+### Targeted Rust redaction tests
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml logger::redact
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+5 passed
+0 failed
+```
+
+### Rust full test suite
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+60 passed
+0 failed
+```
+
+## PUA Pre-Commit Check
+
+- Node: before commit.
+- Skipped validation: no.
+- Used mock instead of real logic: no.
+- Drifted outside P1-2 scope: no.
+- Converted install command into blocking invoke: no.
+- Saved/read/uploaded API Key: no.
+- Modified Provider configuration: no.
+- Took over system proxy: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install: no.
+- Added automatic outdated detection: no.
+- Removed PRD core functionality to pass build: no.
+- Commit before running acceptance commands: no.
+- Commit should include untracked PRD file: no.
