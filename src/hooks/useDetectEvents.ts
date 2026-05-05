@@ -12,18 +12,22 @@ export function useDetectEvents(
   }, [onResult]);
 
   useEffect(() => {
-    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+    let unlisten: UnlistenFn | undefined;
 
-    void listen<DetectResultEvent>("detect:result", (event) => {
+    listen<DetectResultEvent>("detect:result", (event) => {
       onResultRef.current(event.payload);
     }).then((dispose) => {
+      if (cancelled) {
+        dispose();
+        return;
+      }
       unlisten = dispose;
     });
 
     return () => {
-      if (unlisten) {
-        void unlisten();
-      }
+      cancelled = true;
+      unlisten?.();
     };
   }, []);
 }

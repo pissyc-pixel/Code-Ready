@@ -2904,3 +2904,20 @@ fe0652f feat: add ccswitch download source support
 - Read/wrote ccSwitch database: no.
 - Added one-click install: no.
 - PRD input file remains untracked and must be excluded from commit.
+
+# V0.5 Commit 5 Fix - Prevent Event Listener Leak Under React StrictMode
+
+## Problem
+
+Code review found `useDetectEvents.ts` and `useInstallEvents.ts` both use `listen()` which is async and returns an unlisten function. In React StrictMode or rapid unmount, the cleanup may run before `listen()` resolves, causing the listener to leak (unlisten is never called) or duplicate subscriptions.
+
+## Fix
+
+- `useDetectEvents.ts`: added `cancelled` flag. In the `.then()` callback, if `cancelled` is already true, call `dispose()` immediately and return. Cleanup sets `cancelled = true` then calls `unlisten?.()`.
+- `useInstallEvents.ts`: same pattern applied to both `install:progress` and `install:status` listeners independently. Each has its own `cancelled` check in its `.then()` callback.
+
+## Validation
+
+- `npx vitest run src/App.test.tsx --reporter=verbose`: passed, 14 tests (28 total including worktree copy).
+- `npm run build`: passed, 38 modules transformed.
+- No Rust changes made, cargo check/test not required.

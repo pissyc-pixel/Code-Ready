@@ -15,28 +15,34 @@ export function useInstallEvents(options: UseInstallEventsOptions): void {
   }, [options]);
 
   useEffect(() => {
-    let unlistenProgress: UnlistenFn | null = null;
-    let unlistenStatus: UnlistenFn | null = null;
+    let cancelled = false;
+    let unlistenProgress: UnlistenFn | undefined;
+    let unlistenStatus: UnlistenFn | undefined;
 
-    void listen<InstallProgressEvent>("install:progress", (event) => {
+    listen<InstallProgressEvent>("install:progress", (event) => {
       optionsRef.current.onProgress?.(event.payload);
     }).then((dispose) => {
+      if (cancelled) {
+        dispose();
+        return;
+      }
       unlistenProgress = dispose;
     });
 
-    void listen<InstallStatusEvent>("install:status", (event) => {
+    listen<InstallStatusEvent>("install:status", (event) => {
       optionsRef.current.onStatus?.(event.payload);
     }).then((dispose) => {
+      if (cancelled) {
+        dispose();
+        return;
+      }
       unlistenStatus = dispose;
     });
 
     return () => {
-      if (unlistenProgress) {
-        void unlistenProgress();
-      }
-      if (unlistenStatus) {
-        void unlistenStatus();
-      }
+      cancelled = true;
+      unlistenProgress?.();
+      unlistenStatus?.();
     };
   }, []);
 }
