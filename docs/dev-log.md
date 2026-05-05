@@ -3058,6 +3058,98 @@ Also added a basic project README with development commands, architecture overvi
 - No code changes; no new functionality introduced
 - Does not falsely declare set_tool_path implemented
 
+# Release Readiness Validation before V1.0
+
+## Baseline
+
+- Latest commit: `57b5f7c docs: clarify system proxy mode and set_tool_path behavior`
+- Working tree: clean (only untracked `.claude/` and PRD input file present)
+
+## Validation Commands
+
+### 1. Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files  2 passed (2)
+Tests  28 passed (28)
+Duration  5.13s
+```
+
+### 2. Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+tsc && vite build
+38 modules transformed
+dist/ artifacts generated
+built in 871ms
+```
+
+### 3. Rust / Tauri check
+
+Command:
+
+```powershell
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 0.95s
+```
+
+### 4. Rust tests
+
+Command:
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+87 tests passed
+0 failed
+```
+
+## Result
+
+- Pass
+- Notes: All four validation commands passed. 87 Rust tests, 28 frontend tests, frontend build clean, cargo check clean. Working tree is clean. Ready to proceed to V1.0.
+
 ## PUA Self-Check
 
 - Skipped validation: no
