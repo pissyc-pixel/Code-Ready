@@ -24,7 +24,8 @@ pub fn run() {
             commands::install::install_latest_tool,
             commands::install::cancel_install,
             commands::privilege::is_admin,
-            commands::privilege::restart_as_admin
+            commands::privilege::restart_as_admin,
+            commands::subscription::open_subscription_page
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

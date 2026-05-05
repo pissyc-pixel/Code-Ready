@@ -12,6 +12,7 @@ import {
   installTool,
   isAdmin,
   openCcSwitch,
+  openSubscriptionPage,
   reinstallTool,
   restartAsAdmin,
   updateConfig,
@@ -47,6 +48,8 @@ function App() {
   });
   const [config, setConfig] = useState<AppConfig>(defaultAppConfig);
   const [ccswitchPathInput, setCcswitchPathInput] = useState("");
+  const [subscriptionPageUrlInput, setSubscriptionPageUrlInput] = useState("");
+  const [quickActionMessage, setQuickActionMessage] = useState("");
   const [pathRepairTool, setPathRepairTool] = useState<ToolStatus | null>(null);
   const [pathRepairCopyState, setPathRepairCopyState] = useState<
     "idle" | "copied" | "failed"
@@ -130,6 +133,7 @@ function App() {
     const nextConfig = await getConfig();
     setConfig(nextConfig);
     setCcswitchPathInput(nextConfig.ccswitchPath ?? "");
+    setSubscriptionPageUrlInput(nextConfig.subscriptionPageUrl ?? "");
   }
 
   async function loadPrivilege() {
@@ -241,6 +245,15 @@ function App() {
     applyResult(result);
   }
 
+  async function saveSubscriptionPageUrl() {
+    const nextConfig = await updateConfig({
+      subscriptionPageUrl: subscriptionPageUrlInput,
+    });
+    setConfig(nextConfig);
+    setSubscriptionPageUrlInput(nextConfig.subscriptionPageUrl ?? "");
+    setQuickActionMessage("节点订阅网页已保存。");
+  }
+
   async function runOpenCcSwitch() {
     try {
       await openCcSwitch();
@@ -256,6 +269,23 @@ function App() {
           row.id === "ccswitch" ? { ...row, errorMessage: message } : row,
         ),
       );
+    }
+  }
+
+  async function runOpenSubscriptionPage() {
+    try {
+      await openSubscriptionPage();
+      setQuickActionMessage("已用默认浏览器打开节点订阅网页。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setQuickActionMessage(message);
+    }
+  }
+
+  function scrollToPanel(id: string) {
+    const target = document.getElementById(id);
+    if (typeof target?.scrollIntoView === "function") {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
@@ -282,10 +312,10 @@ function App() {
     <main className="app-shell">
       <header className="hero">
         <div>
-          <p className="eyebrow">Windows First · V0.3 Network And Privilege</p>
+          <p className="eyebrow">Windows First - V0.5 Subscription Entry</p>
           <h1>AI Coding 环境助手</h1>
           <p className="hero-copy">
-            当前阶段补上安装网络配置与权限提示，不启动真实安装器。
+            当前阶段补上订阅入口、快捷操作和配置保存，不处理节点解析、代理或 Provider。
           </p>
         </div>
         <button
@@ -293,7 +323,7 @@ function App() {
           onClick={() => void runDetectAll()}
           disabled={isDetectingAll}
         >
-          {isDetectingAll ? "检测中..." : "重新检测全部"}
+          {isDetectingAll ? "检测中..." : "刷新检测"}
         </button>
       </header>
 
@@ -313,8 +343,55 @@ function App() {
 
       <section className="panel">
         <div className="panel-header">
+          <h2>Quick Actions</h2>
+          <p>Common entries only open or jump; they do not save API keys, edit Provider, or take over proxy.</p>
+        </div>
+        <div className="quick-actions">
+          <button
+            type="button"
+            onClick={() => void runDetectAll()}
+            disabled={isDetectingAll}
+          >
+            {isDetectingAll ? "检测中..." : "重新检测全部"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void runOpenCcSwitch()}
+            disabled={!ccswitchRow?.executablePath}
+            title={
+              ccswitchRow?.executablePath
+                ? ccswitchRow.executablePath
+                : "请先安装或指定 ccSwitch 路径"
+            }
+          >
+            打开 ccSwitch
+          </button>
+          <button
+            type="button"
+            onClick={() => void runOpenSubscriptionPage()}
+            disabled={!config.subscriptionPageUrl}
+            title={
+              config.subscriptionPageUrl
+                ? config.subscriptionPageUrl
+                : "请先配置节点订阅网页"
+            }
+          >
+            打开节点订阅网页
+          </button>
+          <button type="button" onClick={() => scrollToPanel("install-network-settings")}>
+            打开安装网络设置
+          </button>
+          <button type="button" onClick={() => scrollToPanel("logs-panel")}>
+            查看日志
+          </button>
+        </div>
+        {quickActionMessage ? <p className="row-message">{quickActionMessage}</p> : null}
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
           <h2>基础环境</h2>
-          <p>这一步先接入网络设置与权限提示，真实 Git / Node / Python 安装器后续再接。</p>
+          <p>这一步保留基础依赖检测和安装入口，具体操作仍按单个工具执行。</p>
         </div>
         <ToolTable
           rows={groupedRows.base}
@@ -331,7 +408,7 @@ function App() {
       <section className="panel">
         <div className="panel-header">
           <h2>AI Coding 工具</h2>
-          <p>Claude / Codex / OpenCode 已接入安装，ccSwitch 仍在后续 commit 再补。</p>
+          <p>Claude / Codex / OpenCode / ccSwitch 分别保留检测、安装和启动入口。</p>
         </div>
         <ToolTable
           rows={groupedRows.ai}
@@ -375,7 +452,7 @@ function App() {
               title={
                 ccswitchRow?.executablePath
                   ? ccswitchRow.executablePath
-                  : "Save a valid ccSwitch path or install it first."
+                : "请先安装或指定 ccSwitch 路径"
               }
             >
               Open ccSwitch
@@ -393,8 +470,38 @@ function App() {
 
       <section className="panel split-panel">
         <div className="panel-header">
+          <h2>节点订阅网页</h2>
+          <p>这里只保存和打开网页入口，不解析订阅、不下载节点、不设置代理。</p>
+        </div>
+        <div className="network-card">
+          <label className="network-stat" htmlFor="subscription-page-url-input">
+            <span>节点订阅网页</span>
+            <input
+              id="subscription-page-url-input"
+              type="url"
+              value={subscriptionPageUrlInput}
+              onChange={(event) => setSubscriptionPageUrlInput(event.target.value)}
+              placeholder="https://example.com/dashboard"
+            />
+          </label>
+          <div className="action-group">
+            <button type="button" onClick={() => void saveSubscriptionPageUrl()}>
+              保存订阅网页
+            </button>
+            <button type="button" onClick={() => void runOpenSubscriptionPage()}>
+              打开订阅网页
+            </button>
+          </div>
+          <p className="tool-detail">
+            留空表示不配置；打开时后端会校验必须是 http:// 或 https:// URL。
+          </p>
+        </div>
+      </section>
+
+      <section className="panel split-panel" id="install-network-settings">
+        <div className="panel-header">
           <h2>安装网络</h2>
-          <p>配置会写入 AppConfig；npm 镜像后续只通过单次命令参数使用。</p>
+          <p>配置会写入 AppConfig；npm 镜像只通过本客户端发起的安装命令使用。</p>
         </div>
         <div className="network-card">
           <div className="network-stat">
@@ -412,8 +519,20 @@ function App() {
           <p className="network-warning">
             注意：winget 不保证读取本客户端的临时代理设置。
           </p>
-          <button type="button">打开安装网络设置</button>
+          <button type="button" onClick={() => scrollToPanel("install-network-settings")}>
+            当前安装网络设置
+          </button>
         </div>
+      </section>
+
+      <section className="panel" id="logs-panel">
+        <div className="panel-header">
+          <h2>Logs</h2>
+          <p>Install output and diagnostic log entries continue here.</p>
+        </div>
+        <p className="tool-detail">
+          Full log file, log directory, and zip export actions will be completed in V0.5 Commit 4.
+        </p>
       </section>
 
       {pathRepairTool?.executablePath ? (

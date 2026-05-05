@@ -57,6 +57,8 @@ pub struct AppConfig {
     pub ccswitch_path: Option<String>,
     #[serde(default)]
     pub ccswitch_download_sources: Vec<CcSwitchDownloadSource>,
+    #[serde(default)]
+    pub subscription_page_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -74,6 +76,7 @@ pub struct AppConfigPatch {
     pub install_network: Option<InstallNetworkPatch>,
     pub ccswitch_path: Option<String>,
     pub ccswitch_download_sources: Option<Vec<CcSwitchDownloadSource>>,
+    pub subscription_page_url: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -87,6 +90,7 @@ impl Default for AppConfig {
             },
             ccswitch_path: None,
             ccswitch_download_sources: Vec::new(),
+            subscription_page_url: None,
         }
     }
 }
@@ -155,6 +159,9 @@ fn update_config_at_path(
     if let Some(ccswitch_download_sources) = patch.ccswitch_download_sources {
         config.ccswitch_download_sources = ccswitch_download_sources;
     }
+    if let Some(subscription_page_url) = patch.subscription_page_url {
+        config.subscription_page_url = Some(subscription_page_url);
+    }
     config = sanitize_config(config);
     validate_config(&config)?;
     write_config_to_path(path, &config)?;
@@ -205,6 +212,7 @@ fn sanitize_config(mut config: AppConfig) -> AppConfig {
     config.install_network.custom_npm_registry =
         trim_optional(config.install_network.custom_npm_registry);
     config.ccswitch_path = trim_optional(config.ccswitch_path);
+    config.subscription_page_url = trim_optional(config.subscription_page_url);
     config.ccswitch_download_sources = config
         .ccswitch_download_sources
         .into_iter()
@@ -241,6 +249,9 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
     }
     for source in &config.ccswitch_download_sources {
         validate_http_url(&source.url, "ccSwitch download source")?;
+    }
+    if let Some(url) = &config.subscription_page_url {
+        validate_http_url(url, "subscription page")?;
     }
     Ok(())
 }
@@ -289,6 +300,8 @@ mod tests {
         assert!(json.get("pipIndexMode").is_none());
         assert_eq!(json["installNetwork"]["mode"], "none");
         assert!(json.get("ccswitchPath").is_some());
+        assert!(json.get("subscriptionPageUrl").is_some());
+        assert!(json["subscriptionPageUrl"].is_null());
         assert_eq!(json["ccswitchDownloadSources"], serde_json::json!([]));
     }
 
@@ -312,6 +325,7 @@ mod tests {
                 sha256: None,
                 min_file_size_bytes: Some(1024),
             }]),
+            subscription_page_url: None,
         };
 
         let mut merged = config;
@@ -442,6 +456,7 @@ mod tests {
                 }),
                 ccswitch_path: None,
                 ccswitch_download_sources: None,
+                subscription_page_url: None,
             },
         )
         .expect_err("reject registry URL with credentials");
@@ -458,6 +473,7 @@ mod tests {
                 }),
                 ccswitch_path: None,
                 ccswitch_download_sources: None,
+                subscription_page_url: None,
             },
         )
         .expect("accept valid custom registry URL");
@@ -487,6 +503,7 @@ mod tests {
                 }),
                 ccswitch_path: None,
                 ccswitch_download_sources: None,
+                subscription_page_url: None,
             },
         )
         .expect_err("reject blank custom registry URL");
@@ -517,6 +534,7 @@ mod tests {
                 install_network: None,
                 ccswitch_path: None,
                 ccswitch_download_sources: Some(vec![invalid_source]),
+                subscription_page_url: None,
             },
         )
         .expect_err("reject unsupported download URL scheme");
@@ -537,6 +555,7 @@ mod tests {
                 install_network: None,
                 ccswitch_path: None,
                 ccswitch_download_sources: Some(vec![valid_source]),
+                subscription_page_url: None,
             },
         )
         .expect("accept valid download URL");
@@ -546,6 +565,76 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn stores_trims_and_clears_subscription_page_url() {
+        let dir = unique_test_dir("subscription-url");
+        fs::create_dir_all(&dir).expect("create temp config dir");
+        let path = dir.join("config.json");
+        write_config_to_path(&path, &AppConfig::default()).expect("write default config");
+
+        let config = update_config_at_path(
+            &path,
+            AppConfigPatch {
+                subscription_page_url: Some(
+                    "  https://subscriptions.example.com/dashboard  ".to_string(),
+                ),
+                ..Default::default()
+            },
+        )
+        .expect("accept valid subscription page URL");
+        assert_eq!(
+            config.subscription_page_url.as_deref(),
+            Some("https://subscriptions.example.com/dashboard")
+        );
+
+        let config = update_config_at_path(
+            &path,
+            AppConfigPatch {
+                subscription_page_url: Some("   ".to_string()),
+                ..Default::default()
+            },
+        )
+        .expect("blank subscription page URL should clear the config");
+        assert_eq!(config.subscription_page_url, None);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rejects_invalid_subscription_page_urls_before_writing() {
+        let invalid_urls = [
+            "ftp://subscriptions.example.com/dashboard",
+            "https:///dashboard",
+            "https://subscriptions.example.com/my dashboard",
+            "https://user:pass@subscriptions.example.com/dashboard",
+        ];
+
+        for url in invalid_urls {
+            let dir = unique_test_dir("invalid-subscription-url");
+            fs::create_dir_all(&dir).expect("create temp config dir");
+            let path = dir.join("config.json");
+            write_config_to_path(&path, &AppConfig::default()).expect("write default config");
+
+            let error = update_config_at_path(
+                &path,
+                AppConfigPatch {
+                    subscription_page_url: Some(url.to_string()),
+                    ..Default::default()
+                },
+            )
+            .expect_err("reject invalid subscription page URL");
+            assert!(
+                error.contains("subscription page"),
+                "unexpected error for {url}: {error}"
+            );
+
+            let normalized = fs::read_to_string(&path).expect("read config after rejection");
+            assert!(!normalized.contains(url));
+
+            let _ = fs::remove_dir_all(dir);
+        }
     }
 
     #[test]
@@ -580,6 +669,7 @@ mod tests {
                         min_file_size_bytes: None,
                     },
                 ]),
+                subscription_page_url: None,
             },
         )
         .expect("direct_zip sources should be filtered, not rejected");

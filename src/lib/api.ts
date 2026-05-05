@@ -42,6 +42,10 @@ export async function openCcSwitch(): Promise<void> {
   return invoke<void>("open_ccswitch");
 }
 
+export async function openSubscriptionPage(): Promise<void> {
+  return invoke<void>("open_subscription_page");
+}
+
 export async function isAdmin(): Promise<boolean> {
   return invoke<boolean>("is_admin");
 }

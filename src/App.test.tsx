@@ -17,9 +17,12 @@ const updateConfigMock = vi.fn();
 const resetConfigMock = vi.fn();
 const isAdminMock = vi.fn<() => Promise<boolean>>();
 const openCcSwitchMock = vi.fn<() => Promise<void>>();
+const openSubscriptionPageMock = vi.fn<() => Promise<void>>();
 const restartAsAdminMock = vi.fn<() => Promise<void>>();
 const listenMock = vi.fn();
 const clipboardWriteTextMock = vi.fn<() => Promise<void>>();
+const installButtonName = /^(安装|瀹夎.*)$/;
+const cancelInstallButtonName = /^(取消安装|鍙栨秷瀹夎.*)$/;
 
 vi.mock("./lib/api", () => ({
   detectAllTools: () => detectAllToolsMock(),
@@ -33,6 +36,7 @@ vi.mock("./lib/api", () => ({
   resetConfig: () => resetConfigMock(),
   isAdmin: () => isAdminMock(),
   openCcSwitch: () => openCcSwitchMock(),
+  openSubscriptionPage: () => openSubscriptionPageMock(),
   restartAsAdmin: () => restartAsAdminMock(),
 }));
 
@@ -64,6 +68,9 @@ import App from "./App";
 
 describe("App", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    detectResultHandler = null;
+    installStatusHandler = null;
     installProgressSubscribed = false;
     clipboardWriteTextMock.mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -79,8 +86,13 @@ describe("App", () => {
       },
       ccswitchPath: undefined,
       ccswitchDownloadSources: [],
+      subscriptionPageUrl: undefined,
     });
     isAdminMock.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("starts detect_all_tools on mount and applies detect:result updates", async () => {
@@ -162,7 +174,7 @@ describe("App", () => {
 
     render(<App />);
 
-    const installButtons = await screen.findAllByRole("button", { name: "安装" });
+    const installButtons = await screen.findAllByRole("button", { name: installButtonName });
     fireEvent.click(installButtons[0]);
 
     await waitFor(() => {
@@ -184,10 +196,10 @@ describe("App", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "取消安装" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: cancelInstallButtonName })).toBeInTheDocument();
     });
 
-    const disabledInstallButtons = screen.getAllByRole("button", { name: "安装" });
+    const disabledInstallButtons = screen.getAllByRole("button", { name: installButtonName });
     expect(disabledInstallButtons[0]).toBeDisabled();
   });
 
@@ -245,7 +257,7 @@ describe("App", () => {
 
     render(<App />);
 
-    const installButtons = await screen.findAllByRole("button", { name: "安装" });
+    const installButtons = await screen.findAllByRole("button", { name: installButtonName });
     fireEvent.click(installButtons[0]);
 
     await act(async () => {
@@ -262,7 +274,7 @@ describe("App", () => {
       });
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "取消安装" }));
+    fireEvent.click(screen.getByRole("button", { name: cancelInstallButtonName }));
 
     await waitFor(() => {
       expect(cancelInstallMock).toHaveBeenCalledTimes(1);
@@ -283,8 +295,8 @@ describe("App", () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "取消安装" })).not.toBeInTheDocument();
-      const nextInstallButtons = screen.getAllByRole("button", { name: "安装" });
+      expect(screen.queryByRole("button", { name: cancelInstallButtonName })).not.toBeInTheDocument();
+      const nextInstallButtons = screen.getAllByRole("button", { name: installButtonName });
       expect(nextInstallButtons[0]).not.toBeDisabled();
     });
   });
@@ -306,7 +318,7 @@ describe("App", () => {
 
     render(<App />);
 
-    const installButton = await screen.findByRole("button", { name: "安装" });
+    const installButton = await screen.findByRole("button", { name: installButtonName });
     fireEvent.click(installButton);
 
     await waitFor(() => {
@@ -384,6 +396,106 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(openCcSwitchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("disables the quick ccSwitch action with the required hint when ccSwitch is not installed", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      {
+        id: "ccswitch",
+        name: "ccSwitch",
+        category: "ai",
+        status: "missing",
+        version: undefined,
+        executablePath: undefined,
+        detectionMethod: "path_probe",
+        lastCheckedAt: "2026-05-05T09:00:00+08:00",
+      },
+    ]);
+
+    render(<App />);
+
+    const openButton = await screen.findByRole("button", { name: "打开 ccSwitch" });
+    expect(openButton).toBeDisabled();
+    expect(openButton).toHaveAttribute("title", "请先安装或指定 ccSwitch 路径");
+  });
+
+  it("saves subscriptionPageUrl and opens the configured subscription page from quick actions", async () => {
+    detectAllToolsMock.mockResolvedValue([]);
+    getConfigMock.mockResolvedValue({
+      installNetwork: {
+        mode: "none",
+        npmRegistry: "default",
+      },
+      ccswitchPath: undefined,
+      ccswitchDownloadSources: [],
+      subscriptionPageUrl: "https://old.example.com/subscription",
+    });
+    updateConfigMock.mockResolvedValue({
+      installNetwork: {
+        mode: "none",
+        npmRegistry: "default",
+      },
+      ccswitchPath: undefined,
+      ccswitchDownloadSources: [],
+      subscriptionPageUrl: "https://nodes.example.com/dashboard",
+    });
+    openSubscriptionPageMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText("节点订阅网页"), {
+      target: { value: "https://nodes.example.com/dashboard" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存订阅网页" }));
+
+    await waitFor(() => {
+      expect(updateConfigMock).toHaveBeenCalledWith({
+        subscriptionPageUrl: "https://nodes.example.com/dashboard",
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "打开节点订阅网页" })).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "打开节点订阅网页" }));
+
+    await waitFor(() => {
+      expect(openSubscriptionPageMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("quick actions re-detect all and jump to settings and logs areas", async () => {
+    detectAllToolsMock.mockResolvedValue([]);
+    const scrollIntoViewMock = vi.fn();
+    const originalGetElementById = document.getElementById.bind(document);
+    vi.spyOn(document, "getElementById").mockImplementation((id: string) => {
+      const element = originalGetElementById(id);
+      if (element) {
+        Object.defineProperty(element, "scrollIntoView", {
+          configurable: true,
+          value: scrollIntoViewMock,
+        });
+      }
+      return element;
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(detectAllToolsMock).toHaveBeenCalledTimes(1);
+    });
+
+    const quickActions = screen.getByText("Quick Actions").closest("section") as HTMLElement;
+    fireEvent.click(within(quickActions).getByRole("button", { name: "重新检测全部" }));
+    fireEvent.click(within(quickActions).getByRole("button", { name: "打开安装网络设置" }));
+    fireEvent.click(within(quickActions).getByRole("button", { name: "查看日志" }));
+
+    await waitFor(() => {
+      expect(detectAllToolsMock).toHaveBeenCalledTimes(2);
+      expect(document.getElementById).toHaveBeenCalledWith("install-network-settings");
+      expect(document.getElementById).toHaveBeenCalledWith("logs-panel");
+      expect(scrollIntoViewMock).toHaveBeenCalled();
     });
   });
 

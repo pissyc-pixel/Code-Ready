@@ -82,6 +82,7 @@ mod tests {
             },
             ccswitch_path: None,
             ccswitch_download_sources: Vec::new(),
+            subscription_page_url: None,
         },
             false,
             InstallRequestMode::Install,

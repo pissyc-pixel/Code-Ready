@@ -257,6 +257,18 @@ th {
   font-size: 1rem;
 }
 
+.network-stat input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 0.72rem 0.8rem;
+  border: 1px solid rgba(29, 53, 87, 0.16);
+  border-radius: 12px;
+  background: #fff;
+  color: #1b2430;
+  font: inherit;
+}
+
 .network-warning {
   grid-column: 1 / -1;
 }

@@ -2787,3 +2787,63 @@ Passed. No new runtime repair command, no `setx`, no `netsh winhttp`, and no `np
 - `cargo test --manifest-path src-tauri/Cargo.toml`: passed, 71 tests.
 - Verify Agent: allowed commit with message `feat: add path repair instructions`.
 - PRD input file remains untracked and must be excluded from commit.
+
+## Commit Result
+
+- Commit hash: `acc1dd5`
+- Commit message: `feat: add path repair instructions`
+- Post-commit log:
+
+```text
+acc1dd5 feat: add path repair instructions
+ab3c2b4 fix: align ccswitch download source behavior
+76cc2ba fix: harden app config recovery and validation
+d37b6fe fix: expand log redaction coverage
+0a3f506 fix: stabilize install status and cancellation flow
+4b1e93e feat: add reinstall and latest install actions
+fe0652f feat: add ccswitch download source support
+794ec14 feat: add ccswitch path and launch support
+```
+
+# V0.5 Commit 3 Execute - Subscription Entry And Quick Actions
+
+## Resume And Role Setup
+
+- Time: 2026-05-05 12:35 (Asia/Shanghai).
+- Current commit target: `feat: add subscription entry and quick actions`.
+- Plan Agent: real subagent started, scoped only to V0.5 Commit 3.
+- Execute Agent: real subagent started, scoped to frontend QuickActions/config UI/tests only.
+- Verify Agent: real subagent started, read-only validation scope.
+- PUA node: commit start. Checked for passive waiting, skipped validation, PRD drift, API Key storage, Provider writes, system proxy takeover, ccSwitch DB reads/writes, node client work, subscription parsing, one-click install, automatic outdated, and oversize scope.
+- PRD input file remains untracked and must be excluded from commit.
+
+## Implementation Notes
+
+- Kept `subscriptionPageUrl` AppConfig default empty.
+- Added `open_subscription_page` as a browser handoff only; it does not download, parse, or set proxy.
+- Added frontend API/QuickActions for detect all, open ccSwitch, open subscription page, open install network settings, and view logs area.
+- Disabled quick ccSwitch open when no detected executable path exists, with title `请先安装或指定 ccSwitch 路径`.
+- Added a subscription page URL input that saves through `update_config`.
+
+## Validation
+
+- Verify Agent first reported the frontend QuickActions/config UI gap; implementation was not allowed to commit until that gap was closed.
+- PUA node: after implementation and after the first failed validation. The initial frontend run exposed JSX/text issues; the first Rust test run exposed missing `subscription_page_url` fields in installer test fixtures. Both were fixed in scope.
+- `npx vitest run src/App.test.tsx --reporter=verbose`: passed, 13 tests.
+- `npm run build`: passed, 38 modules transformed.
+- `cargo check --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed, 75 tests.
+
+## Constraint Check
+
+- PUA node: before commit. Diff was reviewed after validation; commit scope remains V0.5 Commit 3 only.
+- Skipped validation: no.
+- Used mock instead of real logic: no; QuickActions call the real Tauri API wrapper and Rust opens the default browser from AppConfig.
+- Parsed/downloaded subscription content: no.
+- Started proxy or took over system proxy: no.
+- Saved/read/uploaded API Key: no.
+- Modified Provider configuration: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install or automatic outdated detection: no.
+- Implemented log zip export or V1.0 packaging: no.
+- PRD input file remains untracked and must be excluded from commit.

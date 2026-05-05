@@ -25,12 +25,14 @@ export type AppConfig = {
   installNetwork: InstallNetworkConfig;
   ccswitchPath?: string;
   ccswitchDownloadSources: CcSwitchDownloadSource[];
+  subscriptionPageUrl?: string;
 };
 
 export type AppConfigPatch = {
   installNetwork?: Partial<InstallNetworkConfig>;
   ccswitchPath?: string;
   ccswitchDownloadSources?: CcSwitchDownloadSource[];
+  subscriptionPageUrl?: string;
 };
 
 export const defaultAppConfig: AppConfig = {
@@ -39,4 +41,5 @@ export const defaultAppConfig: AppConfig = {
     npmRegistry: "default",
   },
   ccswitchDownloadSources: [],
+  subscriptionPageUrl: undefined,
 };
