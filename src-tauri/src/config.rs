@@ -239,6 +239,16 @@ fn trim_optional(value: Option<String>) -> Option<String> {
 }
 
 fn validate_config(config: &AppConfig) -> Result<(), String> {
+    match (&config.install_network.mode, &config.install_network.proxy_url) {
+        (InstallNetworkMode::ManualProxy, None) => {
+            return Err(
+                "manual proxy mode requires a proxy URL (e.g. http://127.0.0.1:7890 or socks5://127.0.0.1:7890)"
+                    .to_string(),
+            );
+        }
+        (_, Some(url)) => validate_proxy_url(url, "proxy URL")?,
+        _ => {}
+    }
     if let Some(url) = &config.install_network.custom_npm_registry {
         validate_http_url(url, "custom npm registry")?;
     }
@@ -252,6 +262,42 @@ fn validate_config(config: &AppConfig) -> Result<(), String> {
     }
     if let Some(url) = &config.subscription_page_url {
         validate_http_url(url, "subscription page")?;
+    }
+    Ok(())
+}
+
+fn validate_proxy_url(value: &str, label: &str) -> Result<(), String> {
+    if value.chars().any(char::is_whitespace) {
+        return Err(format!("{label} must not contain whitespace"));
+    }
+    let (scheme, rest) = value
+        .split_once("://")
+        .ok_or_else(|| format!("{label} must be a valid http://, https://, or socks5:// URL"))?;
+    if !matches!(
+        scheme.to_ascii_lowercase().as_str(),
+        "http" | "https" | "socks5"
+    ) {
+        return Err(format!(
+            "{label} must use http://, https://, or socks5://"
+        ));
+    }
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if authority.is_empty() {
+        return Err(format!("{label} must include a host"));
+    }
+    if authority.contains('@') {
+        return Err(format!("{label} must not include credentials"));
+    }
+    let host = if let Some(stripped) = authority.strip_prefix('[') {
+        stripped
+            .split_once(']')
+            .map(|(host, _)| host)
+            .unwrap_or_default()
+    } else {
+        authority.split(':').next().unwrap_or_default()
+    };
+    if host.is_empty() {
+        return Err(format!("{label} must include a host"));
     }
     Ok(())
 }
@@ -703,6 +749,143 @@ mod tests {
             "ai-coding-config-test-{name}-{}",
             chrono::Local::now().timestamp_nanos_opt().unwrap_or_default()
         ))
+    }
+
+    #[test]
+    fn validates_proxy_url_scheme() {
+        let valid = [
+            "http://127.0.0.1:7890",
+            "https://proxy.example.com:8080",
+            "socks5://127.0.0.1:1080",
+            "http://192.168.1.1:3128",
+        ];
+        for url in valid {
+            super::validate_proxy_url(url, "proxy URL")
+                .unwrap_or_else(|error| panic!("expected valid proxy URL {url}: {error}"));
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_proxy_url_schemes() {
+        let invalid = [
+            ("ftp://proxy.example.com", "scheme"),
+            ("socks4://127.0.0.1:1080", "scheme"),
+            ("user:pass@127.0.0.1:7890", "scheme"),
+            ("127.0.0.1:7890", "scheme"),
+        ];
+        for (url, _reason) in invalid {
+            super::validate_proxy_url(url, "proxy URL")
+                .expect_err(&format!("expected rejection of proxy URL: {url}"));
+        }
+    }
+
+    #[test]
+    fn rejects_proxy_url_with_credentials() {
+        let error = super::validate_proxy_url("http://user:pass@127.0.0.1:7890", "proxy URL")
+            .expect_err("proxy URL with credentials should be rejected");
+        assert!(error.contains("credentials"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn rejects_proxy_url_without_host() {
+        let error = super::validate_proxy_url("http:///path", "proxy URL")
+            .expect_err("proxy URL without host should be rejected");
+        assert!(error.contains("host"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn manual_proxy_mode_requires_proxy_url() {
+        let dir = unique_test_dir("manual-proxy-no-url");
+        fs::create_dir_all(&dir).expect("create dir");
+        let path = dir.join("config.json");
+        write_config_to_path(&path, &AppConfig::default()).expect("write default config");
+
+        let error = update_config_at_path(
+            &path,
+            AppConfigPatch {
+                install_network: Some(InstallNetworkPatch {
+                    mode: Some(InstallNetworkMode::ManualProxy),
+                    proxy_url: None,
+                    npm_registry: None,
+                    custom_npm_registry: None,
+                }),
+                ccswitch_path: None,
+                ccswitch_download_sources: None,
+                subscription_page_url: None,
+            },
+        )
+        .expect_err("manual proxy without URL should fail");
+        assert!(
+            error.contains("manual proxy mode requires a proxy URL"),
+            "unexpected error: {error}"
+        );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn manual_proxy_mode_accepts_valid_proxy_url() {
+        let dir = unique_test_dir("manual-proxy-valid");
+        fs::create_dir_all(&dir).expect("create dir");
+        let path = dir.join("config.json");
+        write_config_to_path(&path, &AppConfig::default()).expect("write default config");
+
+        let config = update_config_at_path(
+            &path,
+            AppConfigPatch {
+                install_network: Some(InstallNetworkPatch {
+                    mode: Some(InstallNetworkMode::ManualProxy),
+                    proxy_url: Some("socks5://127.0.0.1:1080".to_string()),
+                    npm_registry: None,
+                    custom_npm_registry: None,
+                }),
+                ccswitch_path: None,
+                ccswitch_download_sources: None,
+                subscription_page_url: None,
+            },
+        )
+        .expect("valid manual proxy config should be accepted");
+
+        assert!(matches!(
+            config.install_network.mode,
+            InstallNetworkMode::ManualProxy
+        ));
+        assert_eq!(
+            config.install_network.proxy_url.as_deref(),
+            Some("socks5://127.0.0.1:1080")
+        );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rejects_ftp_proxy_url_in_manual_proxy_mode() {
+        let dir = unique_test_dir("manual-proxy-ftp");
+        fs::create_dir_all(&dir).expect("create dir");
+        let path = dir.join("config.json");
+        write_config_to_path(&path, &AppConfig::default()).expect("write default config");
+
+        let error = update_config_at_path(
+            &path,
+            AppConfigPatch {
+                install_network: Some(InstallNetworkPatch {
+                    mode: Some(InstallNetworkMode::ManualProxy),
+                    proxy_url: Some("ftp://proxy.example.com:21".to_string()),
+                    npm_registry: None,
+                    custom_npm_registry: None,
+                }),
+                ccswitch_path: None,
+                ccswitch_download_sources: None,
+                subscription_page_url: None,
+            },
+        )
+        .expect_err("ftp proxy URL should be rejected");
+        assert!(
+            error.contains("http://") || error.contains("socks5://"),
+            "unexpected error: {error}"
+        );
+
+        let _ = fs::remove_dir_all(dir);
     }
 
     fn is_config_backup_file_name(name: &str) -> bool {

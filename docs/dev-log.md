@@ -2973,3 +2973,52 @@ Finished dev profile [unoptimized + debuginfo] target(s) in 2.75s
 - Saved/read/uploaded API key: no
 - Took over system proxy: no
 - Made cancel blocking: no
+
+# Bugfix: add proxy URL validation to AppConfig
+
+## Time
+
+2026-05-05 (Asia/Shanghai)
+
+## Commit Goal
+
+`fix: add proxy url validation to app config`
+
+## Scope
+
+- Added `validate_proxy_url()` that accepts `http://`, `https://`, `socks5://` and rejects all other schemes, credentials in URL, missing host, whitespace.
+- `validate_config()` now enforces: when `mode == ManualProxy`, `proxy_url` must be present and valid. A non-None proxy_url in any mode is also validated for format.
+- Added 7 new tests covering valid schemes, rejected schemes (ftp, socks4, bare host:port), credentials rejection, missing host, manual proxy mode without URL, and full integration test via `update_config_at_path`.
+
+## Modified Files
+
+- `src-tauri/src/config.rs`
+
+## Validation
+
+### cargo check
+
+```
+Finished dev profile [unoptimized + debuginfo] target(s) in 1.42s
+```
+
+### cargo test
+
+```
+87 tests passed, 0 failed
+```
+
+## PRD Compliance
+
+- No API key saved or read.
+- No system proxy taken over.
+- No `netsh winhttp set proxy` executed.
+- No `npm config set registry` executed.
+- `pipIndexMode` not introduced.
+
+## PUA Self-Check
+
+- Skipped validation: no
+- Drifted outside commit scope: no
+- Took over system proxy: no
+- Saved/read/uploaded API key: no
