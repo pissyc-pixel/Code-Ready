@@ -3022,3 +3022,44 @@ Finished dev profile [unoptimized + debuginfo] target(s) in 1.42s
 - Drifted outside commit scope: no
 - Took over system proxy: no
 - Saved/read/uploaded API key: no
+
+# Docs: clarify system proxy mode and set_tool_path behavior
+
+## Time
+
+2026-05-05 (Asia/Shanghai)
+
+## Commit Goal
+
+`docs: clarify system proxy mode and set_tool_path behavior`
+
+## Scope
+
+Updated README.md to document two known deviations from the PRD interface specification:
+
+1. **SystemProxy mode limitations**: The client does not set or intercept the system proxy; it relies on inherited environment variables. winget does not read proxy env vars; UI warns when manual_proxy is active. `netsh winhttp set proxy` is never executed.
+
+2. **`set_tool_path` command**: The PRD lists `set_tool_path(toolId, path)` as a planned Tauri command. Current implementation uses `update_config({ ccswitchPath })` instead. Functionality is equivalent; dedicated command may be added for strict PRD alignment in a future commit.
+
+Also added a basic project README with development commands, architecture overview, and the V1.0 exclusions list.
+
+## Modified Files
+
+- `README.md`
+
+## Validation
+
+- `git status`: only README.md changed
+- No code changes; cargo check/test not required
+
+## PRD Compliance
+
+- Documents deviations honestly without claiming unimplemented APIs exist
+- No code changes; no new functionality introduced
+- Does not falsely declare set_tool_path implemented
+
+## PUA Self-Check
+
+- Skipped validation: no
+- Made up unimplemented API: no
+- Changed code in documentation commit: no
