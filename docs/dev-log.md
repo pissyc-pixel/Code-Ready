@@ -3266,3 +3266,153 @@ Summary:
 - Added new dependency: no
 - Saved/read/uploaded API Key: no
 - Took over system proxy: no
+
+# V1.0 Windows Packaging Validation
+
+## Time
+
+2026-05-06 (Asia/Shanghai)
+
+## Baseline
+
+- Latest commit: `3e77adb fix: polish v1 readiness issues`
+- Working tree: clean (only untracked `.claude/` and PRD input file present)
+
+## Pre-Package Validation
+
+### Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files  1 passed (1)
+Tests  14 passed (14)
+```
+
+### Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 807ms
+```
+
+### Rust / Tauri check
+
+Command:
+
+```powershell
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 0.67s
+```
+
+### Rust tests
+
+Command:
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+87 tests passed
+0 failed
+```
+
+## Packaging
+
+### Command
+
+```powershell
+npm run tauri build
+```
+
+### Result
+
+Success.
+
+### Artifacts
+
+| Type | Path | Size |
+|------|------|------|
+| Standalone exe | `src-tauri/target/release/tauri-app.exe` | ~11.4 MB |
+| MSI installer | `src-tauri/target/release/bundle/msi/tauri-app_0.1.0_x64_en-US.msi` | ~3.8 MB |
+| NSIS installer | `src-tauri/target/release/bundle/nsis/tauri-app_0.1.0_x64-setup.exe` | ~2.5 MB |
+
+### Signing Status
+
+- Not signed.
+- No signing certificate is configured in `tauri.conf.json` or environment variables.
+- All three artifacts are unsigned test builds.
+
+### Build Prerequisites Confirmed
+
+- Node.js v24.14.0 + npm 11.9.0
+- Rust stable toolchain via rustup
+- Visual Studio Build Tools with C++ workload (provides MSVC and Windows SDK)
+- WebView2 Runtime (pre-installed on Windows 10 21H2+ and Windows 11)
+- Tauri CLI (`@tauri-apps/cli` v2)
+- WiX Toolset v3: auto-downloaded by Tauri CLI on first build
+- NSIS: auto-downloaded by Tauri CLI on first build
+
+### Build Profile
+
+- `release` profile with optimization
+- `beforeBuildCommand`: `npm run build` (tsc + vite)
+- Frontend dist served from `../dist`
+- `frontendDist`: `../dist`
+
+## PRD Compliance
+
+- No API key saved, read, or uploaded.
+- No system proxy modified.
+- No `netsh winhttp set proxy` executed.
+- No `npm config set registry` executed.
+- No automatic PATH modification.
+- No code changes; only documentation updated.
+
+## PUA Self-Check
+
+- Skipped validation: no
+- Drifted outside scope: no
+- Faked packaging result: no
+- Faked signing status: no
+- Committed PRD input file: no
+- Committed `.claude/`: no

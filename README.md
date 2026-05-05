@@ -21,6 +21,43 @@ cargo test --manifest-path src-tauri/Cargo.toml
 npx vitest run src/App.test.tsx --reporter=verbose
 ```
 
+### Validation Commands
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose   # frontend tests
+npm run build                                         # frontend TypeScript + Vite build
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml      # Rust type check
+cargo test --manifest-path src-tauri/Cargo.toml       # Rust unit tests
+```
+
+### Windows Build Prerequisites
+
+- **Node.js** LTS (tested with v24.x)
+- **npm** (comes with Node.js)
+- **Rust toolchain** (via rustup, default `stable` channel)
+- **Visual Studio Build Tools** with C++ workload (provides MSVC linker and Windows SDK)
+- **Windows SDK** (installed alongside VS Build Tools C++ workload)
+- **WebView2 Runtime** (pre-installed on Windows 10 21H2+ and Windows 11; Tauri bundles a fallback for older systems)
+- **Tauri CLI** (`@tauri-apps/cli` v2, installed as dev dependency via npm)
+- **WiX Toolset v3** and **NSIS** are downloaded automatically by Tauri CLI on first build; no manual installation required
+
+### Packaging
+
+```powershell
+npm run tauri build   # produces NSIS installer + MSI in src-tauri/target/release/bundle/
+```
+
+Build artifacts:
+
+```text
+src-tauri/target/release/tauri-app.exe                              # standalone executable
+src-tauri/target/release/bundle/msi/tauri-app_0.1.0_x64_en-US.msi  # MSI installer
+src-tauri/target/release/bundle/nsis/tauri-app_0.1.0_x64-setup.exe # NSIS installer
+```
+
+**Signing status**: These are unsigned test builds. No signing certificate is configured in this project. Distribute at your own risk.
+
 ## Architecture
 
 - **Frontend** (`src/`): React + TypeScript; communicates with the Rust backend via Tauri `invoke` calls and `listen` event subscriptions.
