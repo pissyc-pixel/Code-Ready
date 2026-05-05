@@ -2,6 +2,22 @@ import { invoke } from "@tauri-apps/api/core";
 import type { AppConfig, AppConfigPatch } from "../types/config";
 import type { ToolId, ToolStatus } from "../types/tool";
 
+export type LogPreview = {
+  lines: string[];
+  totalLines: number;
+  truncated: boolean;
+  logDir: string;
+};
+
+export type ExportLogsResult = {
+  zipPath: string;
+  fileCount: number;
+};
+
+export type DiagnosticsExportResult = {
+  path: string;
+};
+
 export async function detectTool(toolId: ToolId): Promise<ToolStatus> {
   return invoke<ToolStatus>("detect_tool", { toolId });
 }
@@ -44,6 +60,24 @@ export async function openCcSwitch(): Promise<void> {
 
 export async function openSubscriptionPage(): Promise<void> {
   return invoke<void>("open_subscription_page");
+}
+
+export async function getLogPreview(limit = 5000): Promise<string[]> {
+  const preview = await invoke<LogPreview>("get_log_preview", { limit });
+  return preview.lines;
+}
+
+export async function openFullLogFile(): Promise<void> {
+  return invoke<void>("open_full_log_file");
+}
+
+export async function openLogDirectory(): Promise<void> {
+  return invoke<void>("open_log_directory");
+}
+
+export async function exportDiagnosticsLogZip(): Promise<DiagnosticsExportResult> {
+  const result = await invoke<ExportLogsResult>("export_logs");
+  return { path: result.zipPath };
 }
 
 export async function isAdmin(): Promise<boolean> {

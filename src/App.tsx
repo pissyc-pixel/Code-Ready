@@ -7,11 +7,15 @@ import {
   cancelInstall,
   detectAllTools,
   detectTool,
+  exportDiagnosticsLogZip,
   getConfig,
+  getLogPreview,
   installLatestTool,
   installTool,
   isAdmin,
   openCcSwitch,
+  openFullLogFile,
+  openLogDirectory,
   openSubscriptionPage,
   reinstallTool,
   restartAsAdmin,
@@ -37,6 +41,7 @@ const INSTALLABLE_TOOL_IDS: ToolId[] = [
   "ccswitch",
 ];
 const LATEST_INSTALLABLE_TOOL_IDS: ToolId[] = ["claude", "codex", "opencode"];
+const LOG_VIEWER_LINE_LIMIT = 5000;
 
 function App() {
   const [rows, setRows] = useState<ToolStatus[]>(() =>
@@ -50,6 +55,9 @@ function App() {
   const [ccswitchPathInput, setCcswitchPathInput] = useState("");
   const [subscriptionPageUrlInput, setSubscriptionPageUrlInput] = useState("");
   const [quickActionMessage, setQuickActionMessage] = useState("");
+  const [logLines, setLogLines] = useState<string[]>([]);
+  const [logActionMessage, setLogActionMessage] = useState("");
+  const [isExportingDiagnostics, setIsExportingDiagnostics] = useState(false);
   const [pathRepairTool, setPathRepairTool] = useState<ToolStatus | null>(null);
   const [pathRepairCopyState, setPathRepairCopyState] = useState<
     "idle" | "copied" | "failed"
@@ -67,6 +75,7 @@ function App() {
   });
 
   useInstallEvents({
+    onProgress: applyLogProgress,
     onStatus: applyInstallStatus,
   });
 
@@ -74,6 +83,7 @@ function App() {
     void runDetectAll();
     void loadConfig();
     void loadPrivilege();
+    void loadLogPreview();
   }, []);
 
   const groupedRows = useMemo(
@@ -129,6 +139,20 @@ function App() {
     });
   }
 
+  function applyLogProgress(event: {
+    stream: string;
+    line: string;
+    timestamp: string;
+  }) {
+    appendLogLine(`[${event.timestamp}] [${event.stream}] ${event.line}`);
+  }
+
+  function appendLogLine(line: string) {
+    setLogLines((currentLines) =>
+      [...currentLines, line].slice(-LOG_VIEWER_LINE_LIMIT),
+    );
+  }
+
   async function loadConfig() {
     const nextConfig = await getConfig();
     setConfig(nextConfig);
@@ -142,6 +166,17 @@ function App() {
       checked: true,
       isAdmin: nextIsAdmin,
     });
+  }
+
+  async function loadLogPreview() {
+    try {
+      const preview = await getLogPreview(LOG_VIEWER_LINE_LIMIT);
+      setLogLines(preview.slice(-LOG_VIEWER_LINE_LIMIT));
+      setLogActionMessage("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setLogActionMessage(`Log preview unavailable: ${message}`);
+    }
   }
 
   async function runDetectAll() {
@@ -279,6 +314,40 @@ function App() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setQuickActionMessage(message);
+    }
+  }
+
+  async function runOpenFullLogFile() {
+    try {
+      await openFullLogFile();
+      setLogActionMessage("Full log file opened.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setLogActionMessage(`Unable to open full log file: ${message}`);
+    }
+  }
+
+  async function runOpenLogDirectory() {
+    try {
+      await openLogDirectory();
+      setLogActionMessage("Log directory opened.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setLogActionMessage(`Unable to open log directory: ${message}`);
+    }
+  }
+
+  async function runExportDiagnosticsLogZip() {
+    setIsExportingDiagnostics(true);
+    setLogActionMessage("Exporting diagnostics zip...");
+    try {
+      const result = await exportDiagnosticsLogZip();
+      setLogActionMessage(`Diagnostics zip exported: ${result.path}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setLogActionMessage(`Unable to export diagnostics zip: ${message}`);
+    } finally {
+      setIsExportingDiagnostics(false);
     }
   }
 
@@ -528,11 +597,42 @@ function App() {
       <section className="panel" id="logs-panel">
         <div className="panel-header">
           <h2>Logs</h2>
-          <p>Install output and diagnostic log entries continue here.</p>
+          <p>Recent install output is capped to the latest 5000 lines in this viewer.</p>
         </div>
-        <p className="tool-detail">
-          Full log file, log directory, and zip export actions will be completed in V0.5 Commit 4.
-        </p>
+        <div className="log-toolbar">
+          <div className="log-count">
+            Showing {logLines.length} / {LOG_VIEWER_LINE_LIMIT} lines
+          </div>
+          <div className="action-group">
+            <button type="button" onClick={() => void runOpenFullLogFile()}>
+              Open full log file
+            </button>
+            <button type="button" onClick={() => void runOpenLogDirectory()}>
+              Open log directory
+            </button>
+            <button
+              type="button"
+              onClick={() => void runExportDiagnosticsLogZip()}
+              disabled={isExportingDiagnostics}
+            >
+              {isExportingDiagnostics
+                ? "Exporting diagnostics zip..."
+                : "Export diagnostics zip"}
+            </button>
+          </div>
+        </div>
+        {logActionMessage ? <p className="row-message">{logActionMessage}</p> : null}
+        <div className="log-viewer" role="log" aria-label="Install log viewer">
+          {logLines.length > 0 ? (
+            logLines.map((line, index) => (
+              <div className="log-line" key={`${index}-${line}`}>
+                {line}
+              </div>
+            ))
+          ) : (
+            <div className="log-empty">No log lines yet.</div>
+          )}
+        </div>
       </section>
 
       {pathRepairTool?.executablePath ? (

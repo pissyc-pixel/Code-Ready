@@ -3,7 +3,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Event } from "@tauri-apps/api/event";
 import type { AppConfig } from "./types/config";
-import type { DetectResultEvent, InstallStatusEvent } from "./types/events";
+import type { DetectResultEvent, InstallProgressEvent, InstallStatusEvent } from "./types/events";
 import type { ToolStatus } from "./types/tool";
 
 const detectAllToolsMock = vi.fn<() => Promise<ToolStatus[]>>();
@@ -19,6 +19,10 @@ const isAdminMock = vi.fn<() => Promise<boolean>>();
 const openCcSwitchMock = vi.fn<() => Promise<void>>();
 const openSubscriptionPageMock = vi.fn<() => Promise<void>>();
 const restartAsAdminMock = vi.fn<() => Promise<void>>();
+const getLogPreviewMock = vi.fn<() => Promise<string[]>>();
+const openFullLogFileMock = vi.fn<() => Promise<void>>();
+const openLogDirectoryMock = vi.fn<() => Promise<void>>();
+const exportDiagnosticsLogZipMock = vi.fn<() => Promise<{ path: string }>>();
 const listenMock = vi.fn();
 const clipboardWriteTextMock = vi.fn<() => Promise<void>>();
 const installButtonName = /^(安装|瀹夎.*)$/;
@@ -38,6 +42,10 @@ vi.mock("./lib/api", () => ({
   openCcSwitch: () => openCcSwitchMock(),
   openSubscriptionPage: () => openSubscriptionPageMock(),
   restartAsAdmin: () => restartAsAdminMock(),
+  getLogPreview: (...args: unknown[]) => getLogPreviewMock(...args),
+  openFullLogFile: () => openFullLogFileMock(),
+  openLogDirectory: () => openLogDirectoryMock(),
+  exportDiagnosticsLogZip: () => exportDiagnosticsLogZipMock(),
 }));
 
 let detectResultHandler:
@@ -45,6 +53,9 @@ let detectResultHandler:
   | null = null;
 let installStatusHandler:
   | ((event: Event<InstallStatusEvent>) => void)
+  | null = null;
+let installProgressHandler:
+  | ((event: Event<InstallProgressEvent>) => void)
   | null = null;
 let installProgressSubscribed = false;
 
@@ -59,6 +70,7 @@ vi.mock("@tauri-apps/api/event", () => ({
     }
     if (eventName === "install:progress") {
       installProgressSubscribed = true;
+      installProgressHandler = handler as (event: Event<InstallProgressEvent>) => void;
     }
     return Promise.resolve(() => Promise.resolve());
   },
@@ -71,6 +83,7 @@ describe("App", () => {
     vi.clearAllMocks();
     detectResultHandler = null;
     installStatusHandler = null;
+    installProgressHandler = null;
     installProgressSubscribed = false;
     clipboardWriteTextMock.mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -89,6 +102,10 @@ describe("App", () => {
       subscriptionPageUrl: undefined,
     });
     isAdminMock.mockResolvedValue(true);
+    getLogPreviewMock.mockResolvedValue([]);
+    openFullLogFileMock.mockResolvedValue(undefined);
+    openLogDirectoryMock.mockResolvedValue(undefined);
+    exportDiagnosticsLogZipMock.mockResolvedValue({ path: "C:\\logs\\diagnostics.zip" });
   });
 
   afterEach(() => {
@@ -608,5 +625,52 @@ describe("App", () => {
     expect(copiedCommand).toContain("C:\\Users\\me\\AppData\\Roaming\\npm");
     expect(copiedCommand).toContain("-notcontains");
     expect(copiedCommand).not.toContain("setx");
+  });
+
+  it("keeps the log viewer to the latest 5000 lines and exposes diagnostics actions", async () => {
+    detectAllToolsMock.mockResolvedValue([]);
+    getLogPreviewMock.mockResolvedValue(["existing log line"]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(getLogPreviewMock).toHaveBeenCalledWith(5000);
+      expect(screen.getByText("existing log line")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      for (let index = 0; index < 5002; index += 1) {
+        installProgressHandler?.({
+          event: "install:progress",
+          id: index,
+          payload: {
+            toolId: "codex",
+            phase: "running",
+            stream: "stdout",
+            line: `progress line ${index}`,
+            timestamp: `2026-05-05T10:00:${String(index % 60).padStart(2, "0")}+08:00`,
+          },
+          windowLabel: "main",
+        });
+      }
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("existing log line")).not.toBeInTheDocument();
+      expect(screen.queryByText("progress line 1")).not.toBeInTheDocument();
+      expect(screen.getByText(/progress line 2$/)).toBeInTheDocument();
+      expect(screen.getByText(/progress line 5001$/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open full log file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open log directory" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export diagnostics zip" }));
+
+    await waitFor(() => {
+      expect(openFullLogFileMock).toHaveBeenCalledTimes(1);
+      expect(openLogDirectoryMock).toHaveBeenCalledTimes(1);
+      expect(exportDiagnosticsLogZipMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("Diagnostics zip exported: C:\\logs\\diagnostics.zip")).toBeInTheDocument();
+    });
   });
 });

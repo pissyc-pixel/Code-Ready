@@ -23,6 +23,10 @@ pub fn run() {
             commands::install::reinstall_tool,
             commands::install::install_latest_tool,
             commands::install::cancel_install,
+            commands::logs::get_log_preview,
+            commands::logs::export_logs,
+            commands::logs::open_full_log_file,
+            commands::logs::open_log_directory,
             commands::privilege::is_admin,
             commands::privilege::restart_as_admin,
             commands::subscription::open_subscription_page

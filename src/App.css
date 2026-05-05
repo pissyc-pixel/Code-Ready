@@ -283,6 +283,43 @@ th {
   gap: 12px;
 }
 
+.log-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.log-count {
+  color: #607388;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.log-viewer {
+  height: 360px;
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid rgba(29, 53, 87, 0.12);
+  border-radius: 14px;
+  background: #172033;
+  color: #eef4fb;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.log-line,
+.log-empty {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.log-empty {
+  color: #9cadc0;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -360,6 +397,7 @@ th {
 
   .hero,
   .panel-header,
+  .log-toolbar,
   .split-panel .network-card {
     display: block;
   }

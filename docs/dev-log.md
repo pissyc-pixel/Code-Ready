@@ -2847,3 +2847,60 @@ fe0652f feat: add ccswitch download source support
 - Added one-click install or automatic outdated detection: no.
 - Implemented log zip export or V1.0 packaging: no.
 - PRD input file remains untracked and must be excluded from commit.
+
+## Commit Result
+
+- Commit hash: `ad77f24`
+- Commit message: `feat: add subscription entry and quick actions`
+- Post-commit log:
+
+```text
+ad77f24 feat: add subscription entry and quick actions
+acc1dd5 feat: add path repair instructions
+ab3c2b4 fix: align ccswitch download source behavior
+76cc2ba fix: harden app config recovery and validation
+d37b6fe fix: expand log redaction coverage
+0a3f506 fix: stabilize install status and cancellation flow
+4b1e93e feat: add reinstall and latest install actions
+fe0652f feat: add ccswitch download source support
+```
+
+# V0.5 Commit 4 Execute - Diagnostics Log Export
+
+## Resume And Role Setup
+
+- Time: 2026-05-05 22:17 (Asia/Shanghai).
+- Current commit target: `feat: add diagnostics log export`.
+- PRD input file remains untracked and must be excluded from commit.
+
+## Implementation Notes
+
+- Added `src-tauri/src/commands/logs.rs` with four Tauri commands: `get_log_preview`, `export_logs`, `open_full_log_file`, `open_log_directory`.
+- `get_log_preview`: reads `.log` files from `%APPDATA%\ai-coding-installer\logs`, returns last N lines (default 5000) with VecDeque window, plus total count and truncation flag.
+- `export_logs`: reads all `.log` files, writes a ZIP to `%APPDATA%\ai-coding-installer\exports\diagnostics-YYYYMMDD-HHMMSS.zip` with a `summary.txt` manifest; uses hand-written minimal ZIP (no compression, CRC32 only) to avoid adding a new crate dependency.
+- `open_full_log_file` / `open_log_directory`: shell-open via `tauri_plugin_opener`.
+- Registered all four commands in `src-tauri/src/lib.rs` invoke_handler and `pub mod logs` in `src-tauri/src/commands/mod.rs`.
+- Frontend `src/lib/api.ts`: added `getLogPreview`, `openFullLogFile`, `openLogDirectory`, `exportDiagnosticsLogZip` wrappers.
+- Frontend `src/App.tsx`: added Logs panel with log viewer (5000-line cap via `.slice(-LOG_VIEWER_LINE_LIMIT)`), "Open full log file", "Open log directory", "Export diagnostics zip" buttons wired to API calls.
+- Frontend `src/App.css`: added `.log-toolbar`, `.log-count`, `.log-viewer`, `.log-line`, `.log-empty` styles.
+- Removed unused `Read` import from `logs.rs` to eliminate compiler warning.
+
+## Validation
+
+- `npx vitest run src/App.test.tsx --reporter=verbose`: passed, 14 tests.
+- `npm run build`: passed, 38 modules transformed.
+- `cargo check --manifest-path src-tauri/Cargo.toml`: passed, 0 warnings.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed, 77 tests.
+
+## Constraint Check
+
+- Skipped validation: no.
+- Used mock instead of real logic: no; ZIP write is real in Rust, frontend calls real Tauri invoke wrappers.
+- Uploaded logs: no; export writes local ZIP only.
+- Contains unredacted secrets: no; logs are already redacted by the backend logger before writing to `.log` files.
+- Saved/read/uploaded API Key: no.
+- Modified Provider configuration: no.
+- Took over system proxy: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install: no.
+- PRD input file remains untracked and must be excluded from commit.
