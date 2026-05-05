@@ -748,7 +748,7 @@ function ToolTable({
                           disabled={disableInstallButton}
                           onClick={() => void onReinstall(row.id)}
                         >
-                          Reinstall
+                          重试安装
                         </button>
                       ) : null}
                       {showInstallLatestButton ? (
@@ -758,7 +758,7 @@ function ToolTable({
                           disabled={disableInstallButton}
                           onClick={() => void onInstallLatest(row.id)}
                         >
-                          Install latest
+                          安装最新版
                         </button>
                       ) : null}
                       {showCancelButton ? (

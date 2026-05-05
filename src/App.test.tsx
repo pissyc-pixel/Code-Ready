@@ -560,8 +560,8 @@ describe("App", () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Reinstall" }));
-    fireEvent.click(screen.getByRole("button", { name: "Install latest" }));
+    fireEvent.click(await screen.findByRole("button", { name: "重试安装" }));
+    fireEvent.click(screen.getByRole("button", { name: "安装最新版" }));
 
     await waitFor(() => {
       expect(reinstallToolMock).toHaveBeenCalledWith("codex");

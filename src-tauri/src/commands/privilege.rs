@@ -23,7 +23,7 @@ pub async fn is_admin() -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub async fn restart_as_admin() -> Result<(), String> {
+pub async fn restart_as_admin(app: tauri::AppHandle) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
     let command = format!(
         "Start-Process -Verb RunAs -FilePath '{}'",
@@ -44,6 +44,7 @@ pub async fn restart_as_admin() -> Result<(), String> {
         });
     }
 
+    app.exit(0);
     Ok(())
 }
 

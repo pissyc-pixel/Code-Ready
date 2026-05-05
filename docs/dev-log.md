@@ -3155,3 +3155,114 @@ Summary:
 - Skipped validation: no
 - Made up unimplemented API: no
 - Changed code in documentation commit: no
+
+# V1 Readiness Polish
+
+## Time
+
+2026-05-06 (Asia/Shanghai)
+
+## Commit Goal
+
+`fix: polish v1 readiness issues`
+
+## Scope
+
+1. **UI button text Chinese localization**: changed `Reinstall` → `重试安装`, `Install latest` → `安装最新版` in `src/App.tsx` and corresponding test in `src/App.test.tsx`.
+2. **Exit original instance after restart_as_admin**: modified `restart_as_admin` in `src-tauri/src/commands/privilege.rs` to accept `tauri::AppHandle` and call `app.exit(0)` after successful `Start-Process -Verb RunAs`. No new dependency added; `app.exit(0)` is part of the existing `tauri` crate API.
+3. **README ccSwitch download source limitation**: added "ccSwitch Download Sources" section to `README.md` documenting DirectExe-only support, no DirectZip, and empty default source list.
+
+## Validation Commands
+
+### Frontend test
+
+Command:
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Test Files  2 passed (2)
+Tests  28 passed (28)
+```
+
+### Frontend build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+38 modules transformed
+dist/ artifacts generated
+built in 1050ms
+```
+
+### Rust / Tauri check
+
+Command:
+
+```powershell
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile [unoptimized + debuginfo] target(s) in 2.17s
+```
+
+### Rust tests
+
+Command:
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+87 tests passed
+0 failed
+```
+
+## PRD Compliance
+
+- No API key saved, read, or uploaded.
+- No system proxy modified.
+- No `netsh winhttp set proxy` executed.
+- No `npm config set registry` executed.
+- No automatic PATH modification.
+- No new dependency added to Cargo.toml or package.json.
+
+## PUA Self-Check
+
+- Skipped validation: no
+- Drifted outside scope: no
+- Added new dependency: no
+- Saved/read/uploaded API Key: no
+- Took over system proxy: no

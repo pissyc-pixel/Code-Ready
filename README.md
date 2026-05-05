@@ -44,6 +44,13 @@ npx vitest run src/App.test.tsx --reporter=verbose
 - The functionality (save path → re-detect → open) is fully implemented through the config patch mechanism.
 - A dedicated `set_tool_path` command may be added in a future commit if strict PRD command-surface alignment is required.
 
+### ccSwitch Download Sources
+
+- V1.0 ccSwitch download sources support **DirectExe** type only.
+- **DirectZip** is not supported; archive extraction is not implemented.
+- The default download source list can be empty. Users can manually specify the ccSwitch executable path when no source is configured.
+- Unknown third-party download accelerators are intentionally excluded.
+
 ### First Version Exclusions
 
 The following features are explicitly out of scope for V1.0:
