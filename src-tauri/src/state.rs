@@ -189,6 +189,19 @@ mod tests {
     }
 
     #[test]
+    fn mark_cancel_requested_on_cleared_state_returns_benign_error() {
+        let state = AppState::default();
+        // No task reserved — simulates task finishing just before cancel_install runs.
+        let error = state
+            .mark_cancel_requested("git")
+            .expect_err("mark cancel on empty state should return an error");
+        assert!(
+            error.contains("no running install task"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
     fn mark_cancel_requested_preserves_cancel_semantics_when_process_already_exited() {
         let state = AppState::default();
         state

@@ -3,7 +3,7 @@ use tauri::State;
 use crate::{
     config,
     installer::{now_timestamp, runner, InstallPhase, InstallRequestMode, InstallTaskState},
-    process::kill_tree::{kill_process_tree, KillTreeOutcome},
+    process::kill_tree::kill_process_tree,
     state::AppState,
 };
 
@@ -58,17 +58,21 @@ pub async fn cancel_install(
     _app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let snapshot = state
-        .snapshot_install()?
-        .ok_or_else(|| "no running install task".to_string())?;
+    let snapshot = match state.snapshot_install()? {
+        Some(task) => task,
+        // Task already finished between UI click and this command — treat as no-op.
+        None => return Ok(()),
+    };
 
-    state.mark_cancel_requested(&snapshot.tool_id)?;
+    // Mark cancel intent.  If the task finished between snapshot and here, silently ignore
+    // the resulting error rather than surfacing it to the frontend.
+    let _ = state.mark_cancel_requested(&snapshot.tool_id);
 
-    match snapshot.pid {
-        Some(pid) => match kill_process_tree(pid)? {
-            KillTreeOutcome::Killed | KillTreeOutcome::AlreadyExited => {}
-        },
-        None => {}
+    if let Some(pid) = snapshot.pid {
+        // Best-effort kill: AlreadyExited and unexpected errors are both acceptable.
+        // The runner loop will observe the natural exit and cancel_requested drives
+        // the final Cancelled status.
+        let _ = kill_process_tree(pid);
     }
     Ok(())
 }

@@ -2921,3 +2921,55 @@ Code review found `useDetectEvents.ts` and `useInstallEvents.ts` both use `liste
 - `npx vitest run src/App.test.tsx --reporter=verbose`: passed, 14 tests (28 total including worktree copy).
 - `npm run build`: passed, 38 modules transformed.
 - No Rust changes made, cargo check/test not required.
+
+# Bugfix: resolve cancel-vs-success race in install runner
+
+## Time
+
+2026-05-05 (Asia/Shanghai)
+
+## Commit Goal
+
+`fix: resolve cancel-vs-success race in install runner`
+
+## Scope
+
+- `cancel_install` command now treats "no running install task" as a no-op (returns Ok) instead of propagating an error to the frontend. This handles the race where the install task finishes between the UI click and the command reaching the backend.
+- `cancel_install` now uses best-effort kill: both `AlreadyExited` and unexpected taskkill errors are silently accepted. The `cancel_requested` flag drives the final Cancelled status regardless.
+- Runner poll loop: changed `Err(error) => return Err(error)` in the kill branch to `Err(_) => {}`. A taskkill error while cancel is requested no longer causes a premature `Failed` event; the loop continues to observe process exit naturally and `cancel_requested` yields Cancelled.
+- `mark_cancel_requested` on cleared state now has a documented test confirming it returns a benign "no running install task" error (not a panic or silent failure).
+
+## Modified Files
+
+- `src-tauri/src/commands/install.rs`
+- `src-tauri/src/installer/runner.rs`
+- `src-tauri/src/state.rs`
+
+## Validation
+
+### cargo check
+
+```
+Finished dev profile [unoptimized + debuginfo] target(s) in 2.75s
+```
+
+### cargo test
+
+```
+80 tests passed, 0 failed
+```
+
+## PRD Compliance
+
+- install_tool still returns immediately (non-blocking spawn).
+- cancel_install uses taskkill /F /T /PID (process tree, not just parent).
+- No API key saved, no system proxy modified, no one-click install.
+
+## PUA Self-Check
+
+- Skipped validation: no
+- Drifted outside commit scope: no
+- Blocked install command: no
+- Saved/read/uploaded API key: no
+- Took over system proxy: no
+- Made cancel blocking: no

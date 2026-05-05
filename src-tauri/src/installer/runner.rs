@@ -219,8 +219,12 @@ fn run_install_task(
                 Ok(KillTreeOutcome::Killed) => {
                     cancel_effective = true;
                 }
-                Ok(KillTreeOutcome::AlreadyExited) => {}
-                Err(error) => return Err(error),
+                Ok(KillTreeOutcome::AlreadyExited) | Err(_) => {
+                    // Process already exited, or taskkill returned an unexpected error.
+                    // Either way the process is gone or unreachable; the poll loop will
+                    // observe the natural exit and cancel_requested drives the final
+                    // Cancelled status rather than Failed.
+                }
             }
         }
 
@@ -506,5 +510,42 @@ mod tests {
             event.error_message.as_deref(),
             Some("install task exited with a non-zero code")
         );
+    }
+
+    #[test]
+    fn final_status_is_cancelled_when_kill_failed_but_cancel_was_requested() {
+        // cancel_effective=false means taskkill returned an error (process unreachable),
+        // but cancel_requested=true means the user did request cancellation.
+        // The final status must still be Cancelled, not Failed.
+        let event =
+            choose_final_status_event("claude", Some(1), false, true, false, 200, None, None);
+
+        assert_eq!(event.phase, InstallPhase::Cancelled);
+        assert!(matches!(
+            event.status,
+            crate::detector::ToolInstallStatus::Missing
+        ));
+        assert!(event.error_message.is_none());
+    }
+
+    #[test]
+    fn success_path_is_unaffected_when_cancel_was_never_requested() {
+        let event = choose_final_status_event(
+            "codex",
+            Some(0),
+            false,
+            false,
+            false,
+            500,
+            Some("done".to_string()),
+            None,
+        );
+
+        assert_eq!(event.phase, InstallPhase::Success);
+        assert!(matches!(
+            event.status,
+            crate::detector::ToolInstallStatus::Installed
+        ));
+        assert_eq!(event.suggestion.as_deref(), Some("done"));
     }
 }
