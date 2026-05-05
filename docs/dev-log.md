@@ -2589,3 +2589,201 @@ sanitize filter: 1 passed; 0 failed
 - Saved API Key: no.
 - Added V0.5 feature work: no.
 - Staged or committed: no.
+
+## Commit Result
+
+- Commit hash: `ab3c2b4`
+- Commit message: `fix: align ccswitch download source behavior`
+- Post-commit log:
+
+```text
+ab3c2b4 fix: align ccswitch download source behavior
+76cc2ba fix: harden app config recovery and validation
+d37b6fe fix: expand log redaction coverage
+0a3f506 fix: stabilize install status and cancellation flow
+4b1e93e feat: add reinstall and latest install actions
+```
+
+# P1 Stabilization Phase Complete
+
+## PUA Stage Complete Check
+
+- Node: after all P1 fixes.
+- P1-1 install status/cancellation committed: `0a3f506`.
+- P1-2 log redaction committed: `d37b6fe`.
+- P1-3 AppConfig recovery/validation committed: `76cc2ba`.
+- P1-4 ccSwitch source behavior committed: `ab3c2b4`.
+- Skipped validation: no.
+- Used mock instead of real logic: no.
+- Drifted outside PRD: no.
+- Saved/read/uploaded API Key: no.
+- Modified Provider configuration: no.
+- Took over system proxy: no.
+- Read/wrote ccSwitch database: no.
+- Added one-click install: no.
+- Added automatic outdated detection: no.
+- Removed PRD core functionality to pass build: no.
+- Next phase: continue V0.5 Commit 2, PATH repair instructions UI only.
+
+# V0.5 Commit 2 Execute - PATH Repair Instructions
+
+## Start Check
+
+- Time: 2026-05-04 22:24.
+- Scope: only `src/App.tsx`, `src/App.css`, `src/App.test.tsx`, `docs/dev-log.md`.
+- PUA check: no passive waiting; use source inspection plus TDD red/green before claiming done.
+- Guardrails: no Rust command, no `repair_tool(mode)`, no automatic PATH mutation, no `setx`, no PowerShell execution for repair, no staging/commit.
+
+## TDD
+
+- Red test added first in `src/App.test.tsx`: an `installed_but_path_missing` tool should expose a PATH repair instructions entry, open a modal, and copy a manual user PATH command through `navigator.clipboard.writeText`.
+- Initial red result: `PATH repair instructions` button was absent.
+- Implementation added the minimal UI state, modal, command generation, and CSS needed for the test.
+
+## Implementation Notes
+
+- `src/App.tsx` now shows the PATH repair entry only for tools whose status is `installed_but_path_missing` and have an executable path.
+- The modal displays tool name, executable path, the directory to add to PATH, manual steps, and an explicit note that the client will not automatically modify PATH.
+- The copied command uses `[Environment]::SetEnvironmentVariable(..., "User")`, reads the user PATH, and appends the directory only when it is not already present.
+- The copy action only calls `navigator.clipboard.writeText(...)`; no command execution path was added.
+
+## Validation
+
+- `cmd.exe /c npx vitest run src/App.test.tsx --reporter=verbose`: passed, 10 tests.
+- `cmd.exe /c npx tsc --noEmit`: passed with exit code 0; PowerShell emitted an execution-policy warning while loading the user profile.
+- `git diff --name-only`: only allowed files changed.
+- `git status --short`: allowed modified files plus the existing untracked PRD file.
+
+## Constraint Check
+
+- Modified files outside allowed scope: no.
+- Ran `cargo fmt` or whole-repo formatting: no.
+- Added Rust command or `repair_tool(mode)`: no.
+- Automatically modified PATH or executed repair command: no.
+- Used `setx`: no.
+- Implemented V0.5 Commit 3/4: no.
+- Staged or committed: no.
+
+# V0.5 Commit 2 Validation
+
+## Time
+
+2026-05-04 22:25 (Asia/Shanghai)
+
+## Main Process Validation
+
+### Frontend test
+
+Command:
+
+```powershell
+cmd.exe /c npx vitest run src/App.test.tsx --reporter=verbose
+```
+
+Result:
+
+Passed with elevated execution because sandboxed Vite/esbuild can fail with `spawn EPERM`.
+
+Summary:
+
+```text
+Test Files 1 passed
+Tests 10 passed
+```
+
+### Frontend build
+
+Command:
+
+```powershell
+cmd.exe /c npm run build
+```
+
+Result:
+
+Passed with elevated execution.
+
+Summary:
+
+```text
+38 modules transformed
+built in 781ms
+```
+
+### Rust / Tauri check
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+Finished dev profile target(s) in 0.53s
+```
+
+### Rust full test suite
+
+Command:
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Result:
+
+Passed.
+
+Summary:
+
+```text
+71 passed
+0 failed
+```
+
+### Constraint grep
+
+Command:
+
+```powershell
+rg -n "repair_tool|setx|netsh winhttp|npm config set" src src-tauri docs/dev-log.md
+```
+
+Result:
+
+Passed. No new runtime repair command, no `setx`, no `netsh winhttp`, and no `npm config set` path was added. Matches are historical docs/tests or expected negative checks.
+
+## PUA Pre-Commit Check
+
+- Node: before V0.5 Commit 2 commit.
+- Skipped validation: no.
+- Used mock instead of real logic: no; UI copies a concrete user PATH command to clipboard.
+- Added Rust command or `repair_tool(mode)`: no.
+- Automatically modified PATH: no.
+- Executed the copied PowerShell command: no.
+- Used `setx`: no.
+- Took over system proxy: no.
+- Added one-click install: no.
+- Saved/read/uploaded API Key: no.
+- Modified Provider configuration: no.
+- Implemented V0.5 Commit 3/4 early: no.
+- Commit should include untracked PRD file: no.
+
+## Resume Validation
+
+- Time: 2026-05-05 12:21 (Asia/Shanghai).
+- Resume note: user asked to continue without restarting. Git history shows P1-2/P1-3/P1-4 already committed; current dirty worktree belongs to V0.5 Commit 2, not P1-2.
+- `npx vitest run src/App.test.tsx --reporter=verbose`: passed, 10 tests.
+- `npm run build`: passed, 38 modules transformed, built in 733ms.
+- `cargo check --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed, 71 tests.
+- Verify Agent: allowed commit with message `feat: add path repair instructions`.
+- PRD input file remains untracked and must be excluded from commit.

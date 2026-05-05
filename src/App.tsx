@@ -47,6 +47,10 @@ function App() {
   });
   const [config, setConfig] = useState<AppConfig>(defaultAppConfig);
   const [ccswitchPathInput, setCcswitchPathInput] = useState("");
+  const [pathRepairTool, setPathRepairTool] = useState<ToolStatus | null>(null);
+  const [pathRepairCopyState, setPathRepairCopyState] = useState<
+    "idle" | "copied" | "failed"
+  >("idle");
   const [adminState, setAdminState] = useState<{
     checked: boolean;
     isAdmin: boolean;
@@ -255,6 +259,25 @@ function App() {
     }
   }
 
+  async function copyPathRepairCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command);
+      setPathRepairCopyState("copied");
+    } catch {
+      setPathRepairCopyState("failed");
+    }
+  }
+
+  function openPathRepair(tool: ToolStatus) {
+    setPathRepairTool(tool);
+    setPathRepairCopyState("idle");
+  }
+
+  function closePathRepair() {
+    setPathRepairTool(null);
+    setPathRepairCopyState("idle");
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
@@ -300,6 +323,7 @@ function App() {
           onReinstall={runReinstall}
           onInstallLatest={runInstallLatest}
           onCancelInstall={runCancelInstall}
+          onOpenPathRepair={openPathRepair}
           installState={installState}
         />
       </section>
@@ -316,6 +340,7 @@ function App() {
           onReinstall={runReinstall}
           onInstallLatest={runInstallLatest}
           onCancelInstall={runCancelInstall}
+          onOpenPathRepair={openPathRepair}
           installState={installState}
         />
       </section>
@@ -390,6 +415,17 @@ function App() {
           <button type="button">打开安装网络设置</button>
         </div>
       </section>
+
+      {pathRepairTool?.executablePath ? (
+        <PathRepairModal
+          tool={pathRepairTool}
+          directory={pathDirectory(pathRepairTool.executablePath)}
+          command={pathRepairCommand(pathDirectory(pathRepairTool.executablePath))}
+          copyState={pathRepairCopyState}
+          onCopy={copyPathRepairCommand}
+          onClose={closePathRepair}
+        />
+      ) : null}
     </main>
   );
 }
@@ -401,6 +437,7 @@ type ToolTableProps = {
   onReinstall: (toolId: ToolId) => Promise<void>;
   onInstallLatest: (toolId: ToolId) => Promise<void>;
   onCancelInstall: () => Promise<void>;
+  onOpenPathRepair: (tool: ToolStatus) => void;
   installState: InstallTaskViewState;
 };
 
@@ -411,6 +448,7 @@ function ToolTable({
   onReinstall,
   onInstallLatest,
   onCancelInstall,
+  onOpenPathRepair,
   installState,
 }: ToolTableProps) {
   return (
@@ -446,6 +484,8 @@ function ToolTable({
               );
             const showCancelButton =
               installState.isInstalling && installState.activeToolId === row.id;
+            const showPathRepairButton =
+              row.status === "installed_but_path_missing" && Boolean(row.executablePath);
             const disableInstallButton =
               installState.isInstalling &&
               installState.activeToolId !== row.id;
@@ -511,6 +551,15 @@ function ToolTable({
                           取消安装
                         </button>
                       ) : null}
+                      {showPathRepairButton ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => onOpenPathRepair(row)}
+                        >
+                          PATH repair instructions
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="ghost-button"
@@ -531,6 +580,109 @@ function ToolTable({
       </table>
     </div>
   );
+}
+
+type PathRepairModalProps = {
+  tool: ToolStatus;
+  directory: string;
+  command: string;
+  copyState: "idle" | "copied" | "failed";
+  onCopy: (command: string) => Promise<void>;
+  onClose: () => void;
+};
+
+function PathRepairModal({
+  tool,
+  directory,
+  command,
+  copyState,
+  onCopy,
+  onClose,
+}: PathRepairModalProps) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        className="path-repair-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="path-repair-title"
+      >
+        <div className="modal-header">
+          <div>
+            <p className="eyebrow">Manual PATH Repair</p>
+            <h2 id="path-repair-title">PATH repair instructions</h2>
+          </div>
+          <button type="button" className="ghost-button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+
+        <div className="repair-grid">
+          <div className="network-stat">
+            <span>Tool</span>
+            <strong>{tool.name}</strong>
+          </div>
+          <div className="network-stat">
+            <span>Executable path</span>
+            <strong className="mono breakable">{tool.executablePath}</strong>
+          </div>
+          <div className="network-stat">
+            <span>Directory to add to PATH</span>
+            <strong className="mono breakable">{directory}</strong>
+          </div>
+        </div>
+
+        <p className="network-warning">
+          This client will not automatically modify PATH. Copy the command below and run it
+          manually in PowerShell if you want to update your user PATH.
+        </p>
+
+        <ol className="manual-steps">
+          <li>Review the executable path and directory above.</li>
+          <li>Copy the user-level PATH command.</li>
+          <li>Run it manually in PowerShell, then restart terminals so PATH refreshes.</li>
+          <li>Come back and re-detect the tool.</li>
+        </ol>
+
+        <pre className="command-preview">
+          <code>{command}</code>
+        </pre>
+
+        <div className="action-group">
+          <button type="button" onClick={() => void onCopy(command)}>
+            Copy manual PATH command
+          </button>
+          {copyState === "copied" ? (
+            <span className="copy-state">Copied to clipboard.</span>
+          ) : null}
+          {copyState === "failed" ? (
+            <span className="copy-state error">Clipboard copy failed.</span>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function pathDirectory(executablePath: string): string {
+  const slashIndex = Math.max(
+    executablePath.lastIndexOf("\\"),
+    executablePath.lastIndexOf("/"),
+  );
+  return slashIndex >= 0 ? executablePath.slice(0, slashIndex) : executablePath;
+}
+
+function pathRepairCommand(directory: string): string {
+  const escapedDirectory = directory.replace(/'/g, "''");
+  return [
+    `$dir = '${escapedDirectory}'`,
+    `$userPath = [Environment]::GetEnvironmentVariable("Path", "User")`,
+    `$parts = @($userPath -split ';' | Where-Object { $_ })`,
+    `if ($parts -notcontains $dir) {`,
+    `  $next = (@($parts) + $dir) -join ';'`,
+    `  [Environment]::SetEnvironmentVariable("Path", $next, "User")`,
+    `}`,
+  ].join("\n");
 }
 
 export default App;

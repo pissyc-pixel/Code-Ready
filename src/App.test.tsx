@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Event } from "@tauri-apps/api/event";
 import type { AppConfig } from "./types/config";
 import type { DetectResultEvent, InstallStatusEvent } from "./types/events";
@@ -19,6 +19,7 @@ const isAdminMock = vi.fn<() => Promise<boolean>>();
 const openCcSwitchMock = vi.fn<() => Promise<void>>();
 const restartAsAdminMock = vi.fn<() => Promise<void>>();
 const listenMock = vi.fn();
+const clipboardWriteTextMock = vi.fn<() => Promise<void>>();
 
 vi.mock("./lib/api", () => ({
   detectAllTools: () => detectAllToolsMock(),
@@ -64,6 +65,13 @@ import App from "./App";
 describe("App", () => {
   beforeEach(() => {
     installProgressSubscribed = false;
+    clipboardWriteTextMock.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: clipboardWriteTextMock,
+      },
+    });
     getConfigMock.mockResolvedValue({
       installNetwork: {
         mode: "none",
@@ -430,5 +438,63 @@ describe("App", () => {
       expect(reinstallToolMock).toHaveBeenCalledWith("codex");
       expect(installLatestToolMock).toHaveBeenCalledWith("codex");
     });
+  });
+
+  it("shows PATH repair instructions only for installed tools missing PATH and copies a manual user PATH command", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      {
+        id: "codex",
+        name: "Codex CLI",
+        category: "ai",
+        status: "installed_but_path_missing",
+        version: "0.1.0",
+        executablePath: "C:\\Users\\me\\AppData\\Roaming\\npm\\codex.cmd",
+        detectionMethod: "npm_global_probe",
+        lastCheckedAt: "2026-05-04T22:30:00+08:00",
+      },
+      {
+        id: "git",
+        name: "Git / Git Bash",
+        category: "base",
+        status: "installed",
+        version: "2.45.0",
+        executablePath: "C:\\Program Files\\Git\\cmd\\git.exe",
+        detectionMethod: "combined",
+        lastCheckedAt: "2026-05-04T22:30:00+08:00",
+      },
+    ]);
+
+    render(<App />);
+
+    const repairButton = await screen.findByRole("button", {
+      name: "PATH repair instructions",
+    });
+    expect(screen.getAllByRole("button", { name: "PATH repair instructions" })).toHaveLength(1);
+
+    fireEvent.click(repairButton);
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "PATH repair instructions",
+    });
+    const modal = within(dialog);
+    expect(dialog).toBeInTheDocument();
+    expect(modal.getByText("Codex CLI")).toBeInTheDocument();
+    expect(modal.getByText("C:\\Users\\me\\AppData\\Roaming\\npm\\codex.cmd")).toBeInTheDocument();
+    expect(modal.getByText("C:\\Users\\me\\AppData\\Roaming\\npm")).toBeInTheDocument();
+    expect(
+      modal.getByText(/This client will not automatically modify PATH/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(modal.getByRole("button", { name: "Copy manual PATH command" }));
+
+    await waitFor(() => {
+      expect(clipboardWriteTextMock).toHaveBeenCalledTimes(1);
+    });
+    const copiedCommand = clipboardWriteTextMock.mock.calls[0][0];
+    expect(copiedCommand).toContain("[Environment]::SetEnvironmentVariable");
+    expect(copiedCommand).toContain('"User"');
+    expect(copiedCommand).toContain("C:\\Users\\me\\AppData\\Roaming\\npm");
+    expect(copiedCommand).toContain("-notcontains");
+    expect(copiedCommand).not.toContain("setx");
   });
 });
