@@ -13,6 +13,13 @@ const AI_TOOL_SUBTITLES: Partial<Record<ToolId, string>> = {
   ccswitch: "GUI · 节点切换",
 };
 
+const SUPPRESSED_NOTE_PATTERNS = [
+  "Detected CLI files, but login or local configuration may still be required.",
+  "可能仍需登录",
+  "可能仍需本地配置",
+  "登录或本地配置",
+];
+
 type AiToolsPageProps = {
   rows: ToolStatus[];
   config: AppConfig;
@@ -99,13 +106,14 @@ function AiToolsPage({
         </div>
 
         <p className="tool-inline-note">
-          每个工具单独安装、单独取消。安装最新版只对支持 npm -g 的工具开放。
+          每个工具单独安装、单独取消。安装最新版只对支持 `npm -g` 的工具开放。
         </p>
 
         <ToolTable
           rows={rows}
           installState={installState}
           subtitles={AI_TOOL_SUBTITLES}
+          layout="cards"
           getRowNote={buildAiToolRowNote}
           onDetect={onDetect}
           onInstall={onInstall}
@@ -133,10 +141,10 @@ function AiToolsPage({
             tone="danger"
             eyebrow="安装失败"
             title="安装失败 / 已损坏"
-            description="清楚说明失败原因，并把重试、安装最新版和日志入口收口到同一处。"
+            description="保留真实失败原因，并把重试、安装最新版和日志入口集中在一起。"
             items={installIssueRows.map((row) => ({
               id: row.id,
-              title: `${row.name} 安装失败`,
+              title: `${row.name} 需要处理`,
               description: row.errorMessage ?? row.suggestion ?? "建议重新安装并查看日志。",
               actions: (
                 <div className="action-group">
@@ -170,7 +178,7 @@ function AiToolsPage({
             tone="danger"
             eyebrow="检测失败"
             title="检测命令超时或返回异常"
-            description="保留真实错误消息与重新检测入口，日志页继续作为排查主入口。"
+            description="保留真实错误消息，并提供重新检测和日志入口。"
             items={detectFailedRows.map((row) => ({
               id: row.id,
               title: `${row.name} 检测失败`,
@@ -197,11 +205,11 @@ function AiToolsPage({
           <StatusPanel
             tone="warning"
             eyebrow="PATH 缺失"
-            title="可执行文件存在，但终端 PATH 没刷新"
-            description="本客户端不会自动改 PATH。你可以查看手动修复说明，或先重启终端。"
+            title="可执行文件存在，但终端 PATH 还没刷新"
+            description="本客户端不会自动修改 PATH。你可以先重启终端，或查看手动修复说明。"
             items={pathRows.map((row) => ({
               id: row.id,
-              title: `${row.name} 需要手动确认 PATH`,
+              title: `${row.name} 需要确认 PATH`,
               description: row.executablePath ?? "未返回可执行文件路径",
               actions: (
                 <div className="action-group">
@@ -223,7 +231,7 @@ function AiToolsPage({
 
         <Card
           title="安装说明"
-          description="安装命令在内置终端中运行，输出实时写入日志页。"
+          description="安装命令在内置终端中运行，输出会实时写入日志页。"
         >
           <div className="tool-info-grid">
             <div className="tool-info-item">
@@ -243,7 +251,7 @@ function AiToolsPage({
 
         <Card
           title="相关入口"
-          description="设计稿里的 ccSwitch 与订阅入口，继续复用现有 invoke，不改后端。"
+          description="ccSwitch 与订阅页继续复用现有打开逻辑，不改原有 invoke 链路。"
         >
           <div className="action-list">
             <div className="action-list-item">
@@ -263,7 +271,7 @@ function AiToolsPage({
             <div className="action-list-item">
               <div>
                 <strong>订阅页</strong>
-                <p>仍然通过当前配置中的 URL 在默认浏览器中打开。</p>
+                <p>通过当前配置中的 URL 在默认浏览器中打开。</p>
               </div>
               <button
                 type="button"
@@ -287,10 +295,17 @@ function buildAiToolRowNote(row: ToolStatus): string | undefined {
   }
 
   if (row.id === "opencode" && row.status === "broken") {
-    return "命令存在，但版本探测失败。建议重新安装。";
+    return "命令存在，但版本检测失败。建议重新安装。";
   }
 
-  return row.suggestion;
+  if (
+    row.suggestion &&
+    !SUPPRESSED_NOTE_PATTERNS.some((pattern) => row.suggestion?.includes(pattern))
+  ) {
+    return row.suggestion;
+  }
+
+  return undefined;
 }
 
 function formatInstallNetwork(config: AppConfig): string {

@@ -44,12 +44,14 @@
 html,
 body,
 #root {
+  height: 100%;
   min-height: 100%;
 }
 
 body {
   margin: 0;
   min-width: 0;
+  overflow: hidden;
   background:
     radial-gradient(circle at top left, rgba(63, 77, 196, 0.08), transparent 28%),
     linear-gradient(180deg, #f7f8fa 0%, #f0f2f5 100%);
@@ -114,25 +116,29 @@ ol {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .app-main {
   min-width: 0;
+  min-height: 0;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .side-nav {
-  position: sticky;
-  top: 0;
+  flex: 0 0 248px;
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   flex-direction: column;
   gap: 28px;
   padding: 28px 18px;
+  overflow-y: auto;
   border-right: 1px solid rgba(199, 202, 209, 0.7);
   background: rgba(250, 251, 252, 0.92);
   backdrop-filter: blur(18px);
@@ -272,8 +278,12 @@ ol {
 }
 
 .app-content {
+  flex: 1;
   padding: 0 32px 32px;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .page-stack {
@@ -864,6 +874,69 @@ ol {
   scrollbar-gutter: stable both-edges;
 }
 
+.tool-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 18px 20px;
+  background: rgba(250, 251, 252, 0.94);
+}
+
+.tool-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.tool-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tool-card-field {
+  min-width: 0;
+  border: 1px solid rgba(22, 24, 29, 0.08);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.tool-card-field-wide {
+  grid-column: 1 / -1;
+}
+
+.tool-card-field span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.tool-card-field strong {
+  display: block;
+  margin-top: 8px;
+}
+
+.tool-card-path {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tool-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 table {
   width: 100%;
   min-width: 760px;
@@ -1165,7 +1238,10 @@ th {
 
   .side-nav {
     position: static;
+    flex-basis: auto;
+    height: auto;
     min-height: auto;
+    overflow: visible;
     border-right: 0;
     border-bottom: 1px solid rgba(199, 202, 209, 0.7);
   }
@@ -1211,6 +1287,10 @@ th {
   }
 
   .log-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-card-grid {
     grid-template-columns: 1fr;
   }
 }

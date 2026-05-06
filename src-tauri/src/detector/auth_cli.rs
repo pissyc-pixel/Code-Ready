@@ -61,10 +61,6 @@ pub(crate) fn detect_auth_sensitive_cli(command: &str, name: &str) -> ToolStatus
     let where_hit = !where_cmd_paths.is_empty() || !where_bare_paths.is_empty();
     let status = resolve_auth_sensitive_status(where_hit, selected.is_some(), version_result.clone());
     let output = version_result.clone().ok().flatten();
-    let needs_config = matches!(
-        status,
-        ToolInstallStatus::Installed | ToolInstallStatus::InstalledButPathMissing
-    );
     let show_error = matches!(status, ToolInstallStatus::Broken | ToolInstallStatus::DetectFailed);
 
     build_tool_status(
@@ -85,10 +81,7 @@ pub(crate) fn detect_auth_sensitive_cli(command: &str, name: &str) -> ToolStatus
             .filter(|item| item.exit_code != 0)
             .and_then(command_error_message)
             .filter(|_| show_error),
-        needs_config.then(|| {
-            "Detected CLI files, but login or local configuration may still be required."
-                .to_string()
-        }),
+        None,
     )
 }
 

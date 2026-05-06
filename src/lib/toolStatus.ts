@@ -1,4 +1,4 @@
-import type { ToolInstallStatus } from "../types/tool";
+import type { ToolInstallStatus, ToolStatus } from "../types/tool";
 
 export const statusMeta: Record<
   ToolInstallStatus,
@@ -16,3 +16,17 @@ export const statusMeta: Record<
   },
   broken: { label: "已损坏", className: "broken" },
 };
+
+export function getToolVersionLabel(
+  tool?: Pick<ToolStatus, "id" | "version" | "executablePath">,
+): string {
+  if (tool?.version) {
+    return tool.version;
+  }
+
+  if (tool?.id === "ccswitch" && tool.executablePath) {
+    return "版本未提供";
+  }
+
+  return "—";
+}

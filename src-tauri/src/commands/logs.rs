@@ -104,7 +104,7 @@ fn export_logs_at_path(log_dir: &Path, export_dir: &Path) -> Result<ExportLogsRe
 
     let mut zip_entries = Vec::new();
     let mut summary = String::from(
-        "AI Coding Environment Assistant diagnostics export\nLogs are written by the Rust backend after line-by-line redaction.\n\n",
+        "Code-ready diagnostics export\nLogs are written by the Rust backend after line-by-line redaction.\n\n",
     );
     for entry in &entries {
         let name = archive_file_name(entry);

@@ -22,6 +22,7 @@ import {
   openSubscriptionPage,
   reinstallTool,
   restartAsAdmin,
+  selectCcSwitchExecutable,
   updateConfig,
 } from "./lib/api";
 import AiToolsPage from "./pages/AiToolsPage";
@@ -120,6 +121,7 @@ function App() {
   });
 
   useEffect(() => {
+    document.title = "Code-ready";
     void runDetectAll();
     void loadConfig();
     void loadPrivilege();
@@ -327,8 +329,28 @@ function App() {
     });
     setConfig(nextConfig);
     setCcswitchPathInput(nextConfig.ccswitchPath ?? "");
+    setQuickActionMessage("ccSwitch 路径已保存。");
+  }
+
+  async function saveCcSwitchPathAndDetect() {
+    const nextConfig = await updateConfig({
+      ccswitchPath: ccswitchPathInput,
+    });
+    setConfig(nextConfig);
+    setCcswitchPathInput(nextConfig.ccswitchPath ?? "");
     const result = await detectTool("ccswitch");
     applyResult(result);
+    setQuickActionMessage("ccSwitch 路径已保存，并已重新检测。");
+  }
+
+  async function browseCcSwitchPath() {
+    const selectedPath = await selectCcSwitchExecutable();
+    if (!selectedPath) {
+      return;
+    }
+
+    setCcswitchPathInput(selectedPath);
+    setQuickActionMessage("");
   }
 
   async function saveSubscriptionPageUrl() {
@@ -485,6 +507,8 @@ function App() {
         onPathInputChange={setCcswitchPathInput}
         onSubscriptionUrlInputChange={setSubscriptionPageUrlInput}
         onSavePath={saveCcSwitchPath}
+        onSavePathAndDetect={saveCcSwitchPathAndDetect}
+        onBrowsePath={browseCcSwitchPath}
         onSaveSubscriptionPageUrl={saveSubscriptionPageUrl}
         onOpenCcSwitch={runOpenCcSwitch}
         onOpenSubscriptionPage={runOpenSubscriptionPage}

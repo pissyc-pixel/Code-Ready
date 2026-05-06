@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import type { AppConfig, AppConfigPatch } from "../types/config";
 import type { ToolId, ToolStatus } from "../types/tool";
 
@@ -73,6 +74,26 @@ export async function openFullLogFile(): Promise<void> {
 
 export async function openLogDirectory(): Promise<void> {
   return invoke<void>("open_log_directory");
+}
+
+export async function selectCcSwitchExecutable(): Promise<string | null> {
+  const selection = await open({
+    multiple: false,
+    directory: false,
+    title: "选择 ccSwitch 可执行文件",
+    filters: [
+      {
+        name: "Windows Executable",
+        extensions: ["exe"],
+      },
+    ],
+  });
+
+  if (typeof selection === "string") {
+    return selection;
+  }
+
+  return null;
 }
 
 export async function exportDiagnosticsLogZip(): Promise<DiagnosticsExportResult> {

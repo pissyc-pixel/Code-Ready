@@ -1,3 +1,4 @@
+import { getToolVersionLabel } from "../lib/toolStatus";
 import Card from "../components/ui/Card";
 import StatusBadge from "../components/ui/StatusBadge";
 import AlertBanner from "../components/ui/AlertBanner";
@@ -12,6 +13,8 @@ type CCSwitchPageProps = {
   onPathInputChange: (value: string) => void;
   onSubscriptionUrlInputChange: (value: string) => void;
   onSavePath: () => Promise<void>;
+  onSavePathAndDetect: () => Promise<void>;
+  onBrowsePath: () => Promise<void>;
   onSaveSubscriptionPageUrl: () => Promise<void>;
   onOpenCcSwitch: () => Promise<void>;
   onOpenSubscriptionPage: () => Promise<void>;
@@ -27,6 +30,8 @@ function CCSwitchPage({
   onPathInputChange,
   onSubscriptionUrlInputChange,
   onSavePath,
+  onSavePathAndDetect,
+  onBrowsePath,
   onSaveSubscriptionPageUrl,
   onOpenCcSwitch,
   onOpenSubscriptionPage,
@@ -43,8 +48,7 @@ function CCSwitchPage({
             <div>
               <h2>ccSwitch</h2>
               <p>
-                启动入口、手动路径、节点订阅网页 URL 都只负责保存和打开，不解析订阅，
-                也不接管代理。
+                启动入口、手动路径、节点订阅网页 URL 都只负责保存和打开，不解析订阅，也不接管代理。
               </p>
             </div>
             <div className="action-group">
@@ -70,7 +74,7 @@ function CCSwitchPage({
               <span>当前状态</span>
               <div className="status-inline">
                 <StatusBadge status={row?.status ?? "missing"} />
-                <strong>{row?.version ?? "未检测到版本"}</strong>
+                <strong>{getToolVersionLabel(row)}</strong>
               </div>
             </div>
             <div className="network-stat">
@@ -117,15 +121,14 @@ function CCSwitchPage({
               <button
                 type="button"
                 className="ghost-button"
-                onClick={() => void onDetectCcSwitch()}
+                onClick={() => void onSavePathAndDetect()}
               >
                 保存后重新检测
               </button>
-              <button type="button" className="ghost-button" disabled>
-                浏览…
+              <button type="button" className="ghost-button" onClick={() => void onBrowsePath()}>
+                浏览...
               </button>
             </div>
-            {/* Backend does not currently expose a native file picker for ccSwitch path selection. */}
             <p className="tool-detail">
               已配置下载源 {downloadSourceCount} 个。当所有源失败时，建议手动指定路径。
             </p>
@@ -170,7 +173,7 @@ function CCSwitchPage({
       <div className="tool-page-sidebar">
         <Card
           title="路径与启动"
-          description="设计稿里的说明被保留为真实操作面板，按钮继续复用现有 invoke。"
+          description="按钮继续复用现有命令链路，只增强路径选择和检测体验。"
         >
           <div className="tool-info-grid">
             <div className="tool-info-item">

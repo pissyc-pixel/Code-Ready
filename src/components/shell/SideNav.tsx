@@ -14,9 +14,9 @@ function SideNav({ items, activeItemId, onSelect }: SideNavProps) {
   return (
     <aside className="side-nav">
       <div className="side-nav-brand">
-        <p className="side-nav-kicker">v0.5 · Windows</p>
-        <h1>AI Coding 环境助手</h1>
-        <p className="side-nav-copy">当前工作区</p>
+        <p className="side-nav-kicker">Code-ready · Windows</p>
+        <h1>Code-ready</h1>
+        <p className="side-nav-copy">AI 编码环境准备工具</p>
       </div>
 
       <nav className="side-nav-menu" aria-label="应用导航">
