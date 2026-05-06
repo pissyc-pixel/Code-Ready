@@ -3791,3 +3791,91 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - No `.claude` committed
 - No `src-tauri/target` committed
 - No npm detection changes mixed into this commit
+
+# V1.0 Runtime Hotfix Validation
+
+## Time
+
+2026-05-06 (Asia/Shanghai)
+
+## Baseline
+
+- Latest commit: `2b32e17 fix: harden packaged runtime tool detection`
+- Branch: `hotfix/v1.0-runtime-detection`
+- Build command: `npm.cmd run tauri build`
+- Build result: Success (release profile, 45.66s compile)
+
+## Validation commands
+
+| Command | Result |
+|---------|--------|
+| `npx vitest run src/App.test.tsx --reporter=verbose` | 14 tests passed |
+| `npm.cmd run build` | 38 modules, built in 747ms |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | Passed |
+| `cargo test --manifest-path src-tauri/Cargo.toml` | 103 tests passed |
+| `npm.cmd run tauri build` | Success, 3 artifacts |
+
+## Artifacts
+
+| Type | Path | Size |
+|------|------|------|
+| Standalone exe | `src-tauri/target/release/tauri-app.exe` | ~11.5 MB |
+| MSI | `src-tauri/target/release/bundle/msi/tauri-app_0.1.0_x64_en-US.msi` | ~3.9 MB |
+| NSIS | `src-tauri/target/release/bundle/nsis/tauri-app_0.1.0_x64-setup.exe` | ~2.5 MB |
+
+## Manual runtime validation
+
+### Launch test
+
+- Launched `src-tauri/target/release/tauri-app.exe` via `Start-Process`.
+- Process ID: 33060
+- App started successfully, WebView2 initialized (`msedgewebview2.exe` spawned as child).
+
+### Command windows on startup
+
+- Observed child processes: only `msedgewebview2.exe` (PID 57424).
+- **No `cmd.exe`, `powershell.exe`, `where.exe`, or other command-line windows appeared as visible child processes.**
+- The `CREATE_NO_WINDOW` flag from Commit 1 is effective in the packaged build.
+
+### App data
+
+- `config.json` created at `%APPDATA%\ai-coding-installer\config.json`.
+- Config content is valid default JSON with correct structure.
+- No log files were created (expected: no install operations were performed during this test).
+
+### UI content verification
+
+- Cannot directly observe WebView2 rendered content from CLI.
+- Tool detection statuses (npm, ccSwitch, Claude Code, Codex, OpenCode) are **not confirmed** by this runtime test.
+- Detection results require manual visual inspection of the app window.
+
+### Summary
+
+| Check | Result |
+|-------|--------|
+| App launches without crash | **Confirmed** |
+| No command-line windows on startup | **Confirmed** |
+| npm detection | **Not confirmed** (requires visual inspection) |
+| ccSwitch detection | **Not confirmed** (requires visual inspection) |
+| Claude Code detection | **Not confirmed** (requires visual inspection) |
+| Codex CLI detection | **Not confirmed** (requires visual inspection) |
+| OpenCode detection | **Not confirmed** (requires visual inspection) |
+| detect_failed still observed | **Not confirmed** (requires visual inspection) |
+| Error popups | **None observed** |
+
+## Result
+
+- **Partial pass**
+- The most critical hotfix target (no command-line windows on startup) is confirmed fixed in the packaged build.
+- Tool detection correctness requires manual visual inspection of the app window; this cannot be automated from CLI.
+- Remaining issues: none observed from CLI; detection accuracy needs human confirmation.
+
+## Guardrails
+
+- No PRD input file committed
+- No `.claude/` committed
+- No `src-tauri/target/` committed
+- No API Key saved, read, or uploaded
+- No Provider configuration modified
+- No ccSwitch database access
+- No system proxy modification
