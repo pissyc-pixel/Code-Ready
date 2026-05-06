@@ -3538,3 +3538,72 @@ Not implemented:
 - Do not commit `.claude/`.
 - Do not commit `src-tauri/target/`.
 - Tag should point to the release-notes commit, not `bf119ad`.
+
+# V1.0 Runtime Hotfix - Commit 1
+
+## Time
+
+2026-05-06 (Asia/Shanghai)
+
+## Commit
+
+- Target commit: `fix: hide windows command windows during detection`
+
+## Problem
+
+- Packaged V1.0 app launched repeated Windows console windows during startup detection.
+- Detection and install child processes spawned `where.exe`, `cmd`, `powershell`, `taskkill`, and tool commands without a shared Windows no-window policy.
+
+## Cause
+
+- Rust process spawning was duplicated across detector, installer runner, privilege probe, and kill-tree code.
+- No shared helper applied `CREATE_NO_WINDOW`, so startup detection surfaced black console windows.
+
+## Modified files
+
+- `src-tauri/src/process/command.rs`
+- `src-tauri/src/process/mod.rs`
+- `src-tauri/src/detector/shared.rs`
+- `src-tauri/src/installer/runner.rs`
+- `src-tauri/src/commands/privilege.rs`
+- `src-tauri/src/process/kill_tree.rs`
+
+## Change summary
+
+- Added a shared Windows no-window command helper in `src-tauri/src/process/command.rs`.
+- Routed detection command execution through the shared helper.
+- Routed install runner child process spawning through the shared helper.
+- Routed privilege probing and `taskkill` through the shared helper.
+- Kept stdout/stderr piping unchanged.
+- Did not change npm, AI CLI, or ccSwitch detection logic in this commit.
+
+## Validation commands
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+npm run build
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+## Validation results
+
+- Frontend tests: passed (`14 passed`)
+- Frontend build: passed
+- cargo check: passed
+- cargo test: passed (`89 passed`)
+
+## Runtime status after this commit
+
+- Whether command windows still pop: pending packaged-app runtime verification after all hotfix commits
+- npm detection result: not changed in this commit
+- ccSwitch detection result: not changed in this commit
+- AI CLI detection result: not changed in this commit
+
+## Guardrails
+
+- No PRD input file committed
+- No `.claude` committed
+- No `src-tauri/target` committed
+- No V1.1 work mixed in

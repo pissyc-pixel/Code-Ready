@@ -1,4 +1,4 @@
-use std::process::Command;
+use crate::process::command::new_command;
 
 pub fn build_taskkill_args(pid: u32) -> Vec<String> {
     vec![
@@ -16,7 +16,7 @@ pub enum KillTreeOutcome {
 }
 
 pub fn kill_process_tree(pid: u32) -> Result<KillTreeOutcome, String> {
-    let output = Command::new("taskkill")
+    let output = new_command("taskkill")
         .args(build_taskkill_args(pid))
         .output()
         .map_err(|error| error.to_string())?;

@@ -1,4 +1,4 @@
-use std::process::Command;
+use crate::process::command::new_command;
 
 fn admin_probe_command() -> Vec<String> {
     vec![
@@ -10,7 +10,7 @@ fn admin_probe_command() -> Vec<String> {
 
 #[tauri::command]
 pub async fn is_admin() -> Result<bool, String> {
-    let output = Command::new("powershell")
+    let output = new_command("powershell")
         .args(admin_probe_command())
         .output()
         .map_err(|error| error.to_string())?;
@@ -30,7 +30,7 @@ pub async fn restart_as_admin(app: tauri::AppHandle) -> Result<(), String> {
         exe.display().to_string().replace('\'', "''")
     );
 
-    let output = Command::new("powershell")
+    let output = new_command("powershell")
         .args(["-NoProfile", "-Command", &command])
         .output()
         .map_err(|error| error.to_string())?;

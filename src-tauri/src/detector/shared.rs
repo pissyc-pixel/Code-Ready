@@ -1,12 +1,13 @@
 use std::{
     fmt,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Stdio,
 };
 
 use chrono::Utc;
 
 use super::{DetectionMethod, ToolCategory, ToolInstallStatus, ToolStatus};
+use crate::process::command::new_command;
 
 #[derive(Debug, Clone)]
 pub struct CommandOutput {
@@ -145,7 +146,7 @@ pub fn is_auth_or_config_required(output: &CommandOutput) -> bool {
 }
 
 pub fn run_command(program: &str, args: &[&str]) -> Result<CommandOutput, ProbeError> {
-    let output = Command::new(program)
+    let output = new_command(program)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -189,7 +190,7 @@ pub fn run_path_command(path: &Path, args: &[&str]) -> Result<CommandOutput, Pro
 }
 
 fn run_command_owned(program: impl AsRef<str>, args: &[String]) -> Result<CommandOutput, ProbeError> {
-    let output = Command::new(program.as_ref())
+    let output = new_command(program.as_ref())
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

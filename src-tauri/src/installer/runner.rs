@@ -2,7 +2,7 @@ use std::{
     fs::{self, File},
     io::{BufRead, BufReader, Write},
     path::PathBuf,
-    process::{Command, Stdio},
+    process::Stdio,
     sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
@@ -19,6 +19,7 @@ use crate::{
         InstallProgressEvent, InstallRequestMode, InstallResult, InstallStatusEvent,
     },
     logger::redact::redact_line,
+    process::command::new_command,
     process::kill_tree::{kill_process_tree, KillTreeOutcome},
     state::AppState,
 };
@@ -157,7 +158,7 @@ fn run_install_task(
     let logger = TaskLogger::new(&tool_id)?;
     let started_at = Instant::now();
 
-    let mut child = Command::new(&spec.program)
+    let mut child = new_command(&spec.program)
         .args(&spec.args)
         .envs(spec.envs.iter().cloned())
         .stdout(Stdio::piped())
