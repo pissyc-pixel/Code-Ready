@@ -3,14 +3,18 @@ use std::path::PathBuf;
 use super::shared::{appdata_dir, first_existing_path, run_command, user_profile_dir, ProbeError};
 
 pub fn probe_npm_global_command(command: &str) -> Result<Option<PathBuf>, ProbeError> {
-    let candidates = candidate_npm_global_paths_from_sources(
+    let candidates = candidate_npm_global_paths(command);
+
+    Ok(first_existing_path(&candidates))
+}
+
+pub fn candidate_npm_global_paths(command: &str) -> Vec<PathBuf> {
+    candidate_npm_global_paths_from_sources(
         command,
         appdata_dir(),
         user_profile_dir(),
         npm_global_prefix_dir(),
-    );
-
-    Ok(first_existing_path(&candidates))
+    )
 }
 
 fn npm_global_prefix_dir() -> Option<PathBuf> {
@@ -85,5 +89,38 @@ mod tests {
         );
         assert!(candidates.contains(&PathBuf::from("D:\\npm-prefix\\npm.cmd")));
         assert!(candidates.contains(&PathBuf::from("D:\\npm-prefix\\npm")));
+    }
+
+    #[test]
+    fn claude_codex_and_opencode_candidates_include_appdata_cmd_wrappers() {
+        for command in ["claude", "codex", "opencode"] {
+            let candidates = candidate_npm_global_paths_from_sources(
+                command,
+                Some(PathBuf::from(r"C:\Users\Tester\AppData\Roaming")),
+                Some(PathBuf::from(r"C:\Users\Tester")),
+                None,
+            );
+
+            assert_eq!(
+                candidates[0],
+                PathBuf::from(format!(
+                    r"C:\Users\Tester\AppData\Roaming\npm\{command}.cmd"
+                ))
+            );
+        }
+    }
+
+    #[test]
+    fn npm_global_candidate_builder_does_not_require_prefix_probe_results() {
+        let candidates = candidate_npm_global_paths_from_sources(
+            "claude",
+            Some(PathBuf::from(r"C:\Users\Tester\AppData\Roaming")),
+            Some(PathBuf::from(r"C:\Users\Tester")),
+            None,
+        );
+
+        assert!(candidates.contains(&PathBuf::from(
+            r"C:\Users\Tester\AppData\Roaming\npm\claude.cmd"
+        )));
     }
 }

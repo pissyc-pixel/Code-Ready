@@ -3687,3 +3687,107 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - No `.claude` committed
 - No `src-tauri/target` committed
 - No AI CLI detection changes mixed into this commit
+
+# V1.0 Runtime Hotfix - Combined Commit 3
+
+## Time
+
+2026-05-06 (Asia/Shanghai)
+
+## Commit
+
+- Target commit: `fix: harden packaged runtime tool detection`
+
+## Problem
+
+- Packaged V1.0 app reported Claude Code / Codex CLI / OpenCode as failed even when npm-global `.cmd` wrappers existed.
+- ccSwitch detection state was too rough: missing/manual-path-error/broken were not clearly separated.
+
+## Cause
+
+- AI CLI detection still depended too much on PATH and bare command invocation.
+- Windows `%APPDATA%\npm\<command>.cmd` wrappers were not treated as first-class candidates.
+- ccSwitch path validation used a coarse missing-or-installed split and did not surface a clear manual-path error in the configured-path case.
+
+## Modified files
+
+- `src-tauri/src/detector/auth_cli.rs`
+- `src-tauri/src/detector/claude.rs`
+- `src-tauri/src/detector/codex.rs`
+- `src-tauri/src/detector/opencode.rs`
+- `src-tauri/src/detector/ccswitch.rs`
+- `src-tauri/src/detector/mod.rs`
+- `src-tauri/src/detector/npm_global.rs`
+- `docs/dev-log.md`
+
+## Change summary
+
+- Added a shared AI CLI detector helper so Claude / Codex / OpenCode and install-time recheck use the same packaged-runtime path strategy.
+- Prioritized AI CLI detection in this order:
+  - `%APPDATA%\npm\<command>.cmd`
+  - `where.exe <command>.cmd`
+  - `where.exe <command>`
+  - npm-global extra candidates
+- Ran `--version` against the selected concrete path instead of preferring bare commands.
+- Kept auth/login/API-key style outputs in the installed family instead of misclassifying them as broken.
+- Kept non-auth execution failures available for broken-state reporting.
+- Refined ccSwitch detection semantics:
+  - no configured path and no common path -> `missing`
+  - configured path missing -> clear error message (`手动指定的 ccSwitch 路径不存在`)
+  - configured non-`.exe` path -> `broken`
+  - existing path probe -> installed via path probe
+- Detection still only probes files and never launches the ccSwitch GUI.
+
+## Added tests
+
+### AI CLI
+
+- `%APPDATA%\npm\claude.cmd` / `codex.cmd` / `opencode.cmd` candidate priority
+- `.cmd` candidates stay ahead of bare command paths
+- npm-global candidate building still works without prefix-probe results
+- auth/login/API-key output from path probes does not become broken
+- successful path-probe execution without PATH hit maps to `installed_but_path_missing`
+
+### ccSwitch
+
+- unconfigured + not found -> `missing` without system error
+- configured path missing -> clear error message
+- configured `.exe` path -> installed via path probe
+- configured non-`.exe` path -> broken
+- validation path check rejects non-`.exe` without launching GUI
+
+## Validation commands
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+npm.cmd run build
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+## Validation results
+
+- Frontend tests: passed (`14 passed`)
+- Frontend build: passed
+- cargo check: passed
+- cargo test: passed (`103 passed`)
+
+## Build command note
+
+- Used `npm.cmd run build` instead of `npm run build`.
+- Reason: in the current shell, `npm run build` may hang behind login-shell wrapping, while `npm.cmd run build` executes the same build script cleanly and is equivalent for validation.
+
+## Runtime status after this commit
+
+- Whether command windows still pop: covered by Commit 1; final packaged-app runtime validation still pending the post-hotfix build turn
+- npm detection result: unchanged in this commit
+- ccSwitch detection result: normalized in code and tests
+- AI CLI detection result: hardened in code and tests
+
+## Guardrails
+
+- No PRD input file committed
+- No `.claude` committed
+- No `src-tauri/target` committed
+- No npm detection changes mixed into this commit

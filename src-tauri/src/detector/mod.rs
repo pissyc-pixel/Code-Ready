@@ -1,3 +1,4 @@
+mod auth_cli;
 mod ccswitch;
 mod claude;
 mod codex;
@@ -141,80 +142,7 @@ pub(crate) fn npm_global_probe_path(
 
 #[allow(dead_code)]
 pub(crate) fn recheck_ai_npm_command(command_name: &str, display_name: &str) -> ToolStatus {
-    let where_paths = match shared::where_command(command_name) {
-        Ok(paths) => paths,
-        Err(error) => {
-            return shared::build_tool_status(
-                command_name,
-                display_name,
-                ToolCategory::Ai,
-                ToolInstallStatus::DetectFailed,
-                None,
-                None,
-                DetectionMethod::NpmGlobalProbe,
-                Some(error.to_string()),
-                None,
-            )
-        }
-    };
-
-    let path_probe = match npm_global::probe_npm_global_command(command_name) {
-        Ok(path) => path,
-        Err(error) => {
-            return shared::build_tool_status(
-                command_name,
-                display_name,
-                ToolCategory::Ai,
-                ToolInstallStatus::DetectFailed,
-                None,
-                None,
-                DetectionMethod::NpmGlobalProbe,
-                Some(error.to_string()),
-                None,
-            )
-        }
-    };
-
-    let version_result = if !where_paths.is_empty() {
-        shared::run_command(command_name, &["--version"]).map(Some)
-    } else if let Some(path) = path_probe.as_ref() {
-        shared::run_path_command(path, &["--version"]).map(Some)
-    } else {
-        Ok(None)
-    };
-
-    let status = shared::resolve_auth_sensitive_status(
-        !where_paths.is_empty(),
-        path_probe.is_some(),
-        version_result.clone(),
-    );
-    let output = version_result.ok().flatten();
-    let suggestion = if matches!(status, ToolInstallStatus::InstalledButPathMissing) {
-        Some(
-            "Detected npm global command files, but the current PATH may not include them yet."
-                .to_string(),
-        )
-    } else {
-        None
-    };
-
-    shared::build_tool_status(
-        command_name,
-        display_name,
-        ToolCategory::Ai,
-        status,
-        output.as_ref().and_then(shared::extract_version_line),
-        where_paths
-            .first()
-            .cloned()
-            .or_else(|| path_probe.as_ref().map(|path| path.display().to_string())),
-        DetectionMethod::NpmGlobalProbe,
-        output
-            .as_ref()
-            .filter(|item| item.exit_code != 0)
-            .and_then(shared::command_error_message),
-        suggestion,
-    )
+    auth_cli::detect_auth_sensitive_cli(command_name, display_name)
 }
 
 #[allow(dead_code)]
