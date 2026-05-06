@@ -76,6 +76,10 @@ function DashboardPage({
     onReinstall,
     onNavigate,
   });
+  const npmRegistryLabel =
+    config.installNetwork.npmRegistry === "custom"
+      ? config.installNetwork.customNpmRegistry ?? "custom"
+      : config.installNetwork.npmRegistry;
 
   return (
     <div className="dashboard-layout">
@@ -83,7 +87,7 @@ function DashboardPage({
         className="dashboard-hero"
         eyebrow="Dashboard"
         title="一眼看懂当前环境状态，按优先级给出下一步动作。"
-        description="不会自动执行安装；所有按钮都仍然连接到现有检测、安装、日志与配置逻辑。"
+        description="不会自动执行安装；所有按钮仍然连接到现有检测、安装、日志与配置逻辑。"
         actions={
           <div className="hero-actions">
             <button type="button" onClick={() => void onExportDiagnostics()}>
@@ -110,12 +114,7 @@ function DashboardPage({
             </strong>
             <p>
               安装网络模式为 <code>{config.installNetwork.mode}</code>，npm registry 当前为{" "}
-              <code>
-                {config.installNetwork.npmRegistry === "custom"
-                  ? config.installNetwork.customNpmRegistry ?? "custom"
-                  : config.installNetwork.npmRegistry}
-              </code>
-              。
+              <code>{npmRegistryLabel}</code>。
             </p>
           </div>
           <div className="dashboard-summary-card">
@@ -186,7 +185,11 @@ function DashboardPage({
                   <strong>当前没有阻塞项</strong>
                   <p>继续监控日志，或前往 AI 工具页逐项确认版本与路径。</p>
                 </div>
-                <button type="button" className="ghost-button" onClick={() => onNavigate("aiTools")}>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => onNavigate("aiTools")}
+                >
                   前往 AI 工具页
                 </button>
               </div>
@@ -201,7 +204,11 @@ function DashboardPage({
             ))}
           </div>
           <div className="card-footer-actions">
-            <button type="button" className="ghost-button" onClick={() => onNavigate("environment")}>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => onNavigate("environment")}
+            >
               前往基础环境页
             </button>
           </div>
@@ -214,7 +221,11 @@ function DashboardPage({
             ))}
           </div>
           <div className="card-footer-actions">
-            <button type="button" className="ghost-button" onClick={() => onNavigate("aiTools")}>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => onNavigate("aiTools")}
+            >
               前往 AI 工具页
             </button>
           </div>
@@ -235,7 +246,7 @@ function DashboardPage({
         </Card>
 
         <Card title="安全边界" description="这些内容目前是静态说明，后续可以再按设计稿细化。">
-          {/* Placeholder text follows the PRD and design shell until dedicated settings visuals are migrated. */}
+          {/* Placeholder text follows the PRD until the dedicated settings visual is migrated. */}
           <ul className="boundary-list">
             <li>不保存 API Key，也不读取明文。</li>
             <li>不自动写 Provider 配置。</li>
@@ -323,7 +334,9 @@ function buildNextActions({
     items.push({
       id: `${brokenTool.id}-broken`,
       title: `${brokenTool.name} 需要修复`,
-      description: brokenTool.errorMessage ?? "命令存在，但版本探测失败或不可正常执行。",
+      description:
+        brokenTool.errorMessage ??
+        "命令存在，但版本探测失败或无法正常执行。",
       actionLabel: "重试安装",
       action: () => void onReinstall(brokenTool.id),
     });
@@ -334,7 +347,7 @@ function buildNextActions({
     items.push({
       id: `${pathTool.id}-path`,
       title: `${pathTool.name} 需要处理 PATH`,
-      description: "可执行文件已存在，但当前终端 PATH 未正确刷新。",
+      description: "可执行文件已存在，但当前终端 PATH 还没有刷新。",
       actionLabel: "前往基础环境页",
       action: () => onNavigate("environment"),
     });
@@ -347,7 +360,7 @@ function buildNextActions({
     items.push({
       id: `${missingAiTool.id}-missing`,
       title: `安装 ${missingAiTool.name}`,
-      description: `${missingAiTool.name} 当前未安装，可直接沿用现有安装逻辑。`,
+      description: `${missingAiTool.name} 当前未安装，可以直接沿用现有安装逻辑。`,
       actionLabel: "立即安装",
       action: () => void onInstall(missingAiTool.id),
     });
@@ -368,7 +381,7 @@ function buildNextActions({
     items.push({
       id: "subscription-settings",
       title: "保存节点订阅网页（可选）",
-      description: "保存后可以在 ccSwitch 页或首页快捷入口中一键打开。",
+      description: "保存后可以在 ccSwitch 页或首页快捷入口里一键打开。",
       actionLabel: "前往设置",
       action: () => onNavigate("settings"),
     });

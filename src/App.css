@@ -521,6 +521,49 @@ ol {
   width: 100%;
 }
 
+.tool-page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.tool-page-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tool-inline-note {
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  font-size: 0.94rem;
+}
+
+.tool-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tool-info-item {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(250, 251, 252, 0.92);
+}
+
+.tool-info-item span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.tool-info-item strong {
+  display: block;
+  margin-top: 8px;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -548,6 +591,17 @@ th {
 
 .tool-name {
   font-weight: 700;
+}
+
+.tool-name-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tool-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
 }
 
 .status-badge {
@@ -756,6 +810,7 @@ th {
   .dashboard-stats,
   .dashboard-summary-grid,
   .dashboard-grid,
+  .tool-page-layout,
   .network-card,
   .repair-grid {
     grid-template-columns: 1fr;

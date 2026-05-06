@@ -24,8 +24,9 @@ import {
   restartAsAdmin,
   updateConfig,
 } from "./lib/api";
-import { statusMeta } from "./lib/toolStatus";
+import AiToolsPage from "./pages/AiToolsPage";
 import DashboardPage from "./pages/DashboardPage";
+import EnvPage from "./pages/EnvPage";
 import { defaultAppConfig, type AppConfig } from "./types/config";
 import type {
   InstallStatusEvent,
@@ -34,16 +35,6 @@ import type {
 import type { ToolId, ToolStatus } from "./types/tool";
 
 const initialRows = [...mockBaseTools, ...mockAiTools];
-const INSTALLABLE_TOOL_IDS: ToolId[] = [
-  "git",
-  "node",
-  "python",
-  "claude",
-  "codex",
-  "opencode",
-  "ccswitch",
-];
-const LATEST_INSTALLABLE_TOOL_IDS: ToolId[] = ["claude", "codex", "opencode"];
 const LOG_VIEWER_LINE_LIMIT = 5000;
 
 type AppViewId =
@@ -66,7 +57,7 @@ const APP_NAV_ITEMS: SideNavItem[] = [
 const VIEW_META: Record<AppViewId, { title: string; description: string }> = {
   dashboard: {
     title: "Dashboard",
-    description: "保留真实逻辑，只先迁移 App Shell 与首页总览。",
+    description: "保留真实逻辑，只迁移壳层和首页信息分发。",
   },
   environment: {
     title: "基础环境",
@@ -78,15 +69,15 @@ const VIEW_META: Record<AppViewId, { title: string; description: string }> = {
   },
   ccswitch: {
     title: "ccSwitch",
-    description: "路径保存、启动入口和订阅页 URL 仍走现有状态与 invoke 调用。",
+    description: "路径保存、启动入口和订阅页 URL 仍然走现有状态与 invoke 调用。",
   },
   logs: {
     title: "日志与诊断",
-    description: "实时日志、完整日志目录和诊断压缩包继续沿用原有数据链路。",
+    description: "实时日志、完整日志目录和诊断压缩包继续复用原有数据链路。",
   },
   settings: {
     title: "设置",
-    description: "安装网络与权限信息保留在现有配置逻辑中。",
+    description: "安装网络与权限信息继续保留在现有配置逻辑中。",
   },
 };
 
@@ -143,6 +134,11 @@ function App() {
   );
   const ccswitchRow = rows.find((row) => row.id === "ccswitch");
   const activeInstallRow = rows.find((row) => row.id === installState.activeToolId);
+  const currentViewMeta = VIEW_META[activeView];
+  const npmRegistryLabel =
+    config.installNetwork.npmRegistry === "custom"
+      ? config.installNetwork.customNpmRegistry ?? "custom"
+      : config.installNetwork.npmRegistry;
 
   function applyResult(result: ToolStatus) {
     setRows((currentRows) =>
@@ -419,65 +415,42 @@ function App() {
     setPathRepairCopyState("idle");
   }
 
-  const currentViewMeta = VIEW_META[activeView];
-  const npmRegistryLabel =
-    config.installNetwork.npmRegistry === "custom"
-      ? config.installNetwork.customNpmRegistry ?? "custom"
-      : config.installNetwork.npmRegistry;
-
   function renderEnvironmentPage() {
     return (
-      <section className="page-section panel" role="region" aria-label="基础环境">
-        <div className="panel-header">
-          <div>
-            <h2>基础环境</h2>
-            <p>
-              Git / Node / npm / Python 是 AI Coding CLI 的前置依赖。每项独立检测、独立安装。
-            </p>
-          </div>
-          <button type="button" onClick={() => void runDetectAll()} disabled={isDetectingAll}>
-            {isDetectingAll ? "检测中..." : "重新检测全部"}
-          </button>
-        </div>
-        <ToolTable
-          rows={groupedRows.base}
-          onDetect={runDetectOne}
-          onInstall={runInstall}
-          onReinstall={runReinstall}
-          onInstallLatest={runInstallLatest}
-          onCancelInstall={runCancelInstall}
-          onOpenPathRepair={openPathRepair}
-          installState={installState}
-        />
-      </section>
+      <EnvPage
+        rows={groupedRows.base}
+        isDetectingAll={isDetectingAll}
+        installState={installState}
+        onDetectAll={runDetectAll}
+        onDetect={runDetectOne}
+        onInstall={runInstall}
+        onReinstall={runReinstall}
+        onInstallLatest={runInstallLatest}
+        onCancelInstall={runCancelInstall}
+        onOpenPathRepair={openPathRepair}
+        onNavigateLogs={() => setActiveView("logs")}
+      />
     );
   }
 
   function renderAiToolsPage() {
     return (
-      <section className="page-section panel" role="region" aria-label="AI 工具">
-        <div className="panel-header">
-          <div>
-            <h2>AI 工具</h2>
-            <p>
-              Claude / Codex / OpenCode / ccSwitch 的检测、安装、更新与取消逻辑全部保留。
-            </p>
-          </div>
-          <button type="button" onClick={() => void runDetectAll()} disabled={isDetectingAll}>
-            {isDetectingAll ? "检测中..." : "重新检测全部"}
-          </button>
-        </div>
-        <ToolTable
-          rows={groupedRows.ai}
-          onDetect={runDetectOne}
-          onInstall={runInstall}
-          onReinstall={runReinstall}
-          onInstallLatest={runInstallLatest}
-          onCancelInstall={runCancelInstall}
-          onOpenPathRepair={openPathRepair}
-          installState={installState}
-        />
-      </section>
+      <AiToolsPage
+        rows={groupedRows.ai}
+        config={config}
+        isDetectingAll={isDetectingAll}
+        installState={installState}
+        canOpenCcSwitch={Boolean(ccswitchRow?.executablePath)}
+        onDetectAll={runDetectAll}
+        onDetect={runDetectOne}
+        onInstall={runInstall}
+        onReinstall={runReinstall}
+        onInstallLatest={runInstallLatest}
+        onCancelInstall={runCancelInstall}
+        onOpenPathRepair={openPathRepair}
+        onOpenCcSwitch={runOpenCcSwitch}
+        onOpenSubscriptionPage={runOpenSubscriptionPage}
+      />
     );
   }
 
@@ -487,14 +460,17 @@ function App() {
         <section className="page-section panel" role="region" aria-label="ccSwitch">
           <div className="panel-header">
             <div>
-              <h2>ccSwitch Path</h2>
+              <h2>ccSwitch 路径</h2>
               <p>
-                Save a manual ccSwitch executable path, then re-detect or open it. Detection still
-                only probes paths and never launches the GUI.
+                保存手动的 ccSwitch 可执行文件路径，然后重新检测或直接打开。检测仍然只做路径探测，不会自动拉起 GUI。
               </p>
             </div>
-            <button type="button" onClick={() => void runOpenCcSwitch()} disabled={!ccswitchRow?.executablePath}>
-              Open ccSwitch
+            <button
+              type="button"
+              onClick={() => void runOpenCcSwitch()}
+              disabled={!ccswitchRow?.executablePath}
+            >
+              打开 ccSwitch
             </button>
           </div>
           <div className="network-card single-column">
@@ -510,15 +486,14 @@ function App() {
             </label>
             <div className="action-group">
               <button type="button" onClick={() => void saveCcSwitchPath()}>
-                Save ccSwitch path
+                保存 ccSwitch 路径
               </button>
               <button type="button" onClick={() => void runDetectOne("ccswitch")}>
-                Re-detect ccSwitch
+                重新检测 ccSwitch
               </button>
             </div>
             <p className="tool-detail">
-              Configured download sources: {config.ccswitchDownloadSources.length}. If all sources
-              fail or no source is configured, save a manual ccSwitch path instead.
+              当前配置了 {config.ccswitchDownloadSources.length} 个下载源。如果所有源都失败，或者还没有配置下载源，请直接保存手动路径。
             </p>
           </div>
         </section>
@@ -529,7 +504,11 @@ function App() {
               <h2>节点订阅网页</h2>
               <p>这里只保存和打开网页入口，不解析订阅、不下载节点、不设置代理。</p>
             </div>
-            <button type="button" onClick={() => void runOpenSubscriptionPage()} disabled={!config.subscriptionPageUrl}>
+            <button
+              type="button"
+              onClick={() => void runOpenSubscriptionPage()}
+              disabled={!config.subscriptionPageUrl}
+            >
               打开订阅页
             </button>
           </div>
@@ -548,8 +527,12 @@ function App() {
               <button type="button" onClick={() => void saveSubscriptionPageUrl()}>
                 保存订阅网页
               </button>
-              <button type="button" onClick={() => void runOpenSubscriptionPage()} disabled={!config.subscriptionPageUrl}>
-                打开订阅网页
+              <button
+                type="button"
+                onClick={() => void runOpenSubscriptionPage()}
+                disabled={!config.subscriptionPageUrl}
+              >
+                打开订阅页
               </button>
             </div>
             <p className="tool-detail">
@@ -614,7 +597,9 @@ function App() {
             <div className="panel-header">
               <div>
                 <h2>当前为标准用户运行</h2>
-                <p>安装某些工具时会弹出 Windows UAC。也可以现在直接以管理员身份重启本应用。</p>
+                <p>
+                  安装某些工具时会弹出 Windows UAC。你也可以现在直接以管理员身份重启当前应用。
+                </p>
               </div>
               <button type="button" onClick={() => void runRestartAsAdmin()}>
                 以管理员身份重启
@@ -627,7 +612,7 @@ function App() {
           <div className="panel-header">
             <div>
               <h2>安装网络</h2>
-              <p>只影响本客户端发起的安装命令。winget 不保证读取这里的代理设置。</p>
+              <p>这里只影响客户端发起的安装命令。winget 不保证读取这里的代理设置。</p>
             </div>
           </div>
           <div className="network-card">
@@ -639,7 +624,9 @@ function App() {
               <span>npm registry</span>
               <strong>{npmRegistryLabel}</strong>
             </div>
-            <p className="network-warning">本轮未迁移完整设置表单，先保留真实配置读取结果。</p>
+            <p className="network-warning">
+              这一轮还没有完整迁移设置表单，先保留真实配置读取结果。
+            </p>
           </div>
         </section>
       </div>
@@ -720,153 +707,6 @@ function App() {
         />
       ) : null}
     </>
-  );
-}
-
-type ToolTableProps = {
-  rows: ToolStatus[];
-  onDetect: (toolId: ToolId) => Promise<void>;
-  onInstall: (toolId: ToolId) => Promise<void>;
-  onReinstall: (toolId: ToolId) => Promise<void>;
-  onInstallLatest: (toolId: ToolId) => Promise<void>;
-  onCancelInstall: () => Promise<void>;
-  onOpenPathRepair: (tool: ToolStatus) => void;
-  installState: InstallTaskViewState;
-};
-
-function ToolTable({
-  rows,
-  onDetect,
-  onInstall,
-  onReinstall,
-  onInstallLatest,
-  onCancelInstall,
-  onOpenPathRepair,
-  installState,
-}: ToolTableProps) {
-  return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>工具</th>
-            <th>状态</th>
-            <th>版本</th>
-            <th>路径</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const meta = statusMeta[row.status];
-            const canInstall = INSTALLABLE_TOOL_IDS.includes(row.id);
-            const canInstallLatest = LATEST_INSTALLABLE_TOOL_IDS.includes(row.id);
-            const showInstallButton = canInstall && row.status === "missing";
-            const showReinstallButton =
-              canInstall &&
-              row.status !== "missing" &&
-              row.status !== "checking" &&
-              !(installState.isInstalling && installState.activeToolId === row.id);
-            const showInstallLatestButton =
-              canInstallLatest &&
-              row.status !== "checking" &&
-              !(installState.isInstalling && installState.activeToolId === row.id);
-            const showCancelButton =
-              installState.isInstalling && installState.activeToolId === row.id;
-            const showPathRepairButton =
-              row.status === "installed_but_path_missing" && Boolean(row.executablePath);
-            const disableInstallButton =
-              installState.isInstalling && installState.activeToolId !== row.id;
-
-            return (
-              <tr key={row.id}>
-                <td>
-                  <div className="tool-name">{row.name}</div>
-                  {row.suggestion ? (
-                    <div className="tool-detail">{row.suggestion}</div>
-                  ) : null}
-                </td>
-                <td>
-                  <span className={`status-badge ${meta.className}`}>{meta.label}</span>
-                </td>
-                <td className="mono">{row.version ?? "-"}</td>
-                <td>
-                  <div className="path-cell" title={row.executablePath ?? "-"}>
-                    {row.executablePath ?? "-"}
-                  </div>
-                </td>
-                <td>
-                  {row.status === "checking" ? (
-                    <span className="checking-text">等待结果...</span>
-                  ) : (
-                    <div className="action-group">
-                      {showInstallButton ? (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          disabled={disableInstallButton}
-                          onClick={() => void onInstall(row.id)}
-                        >
-                          安装
-                        </button>
-                      ) : null}
-                      {showReinstallButton ? (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          disabled={disableInstallButton}
-                          onClick={() => void onReinstall(row.id)}
-                        >
-                          重试安装
-                        </button>
-                      ) : null}
-                      {showInstallLatestButton ? (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          disabled={disableInstallButton}
-                          onClick={() => void onInstallLatest(row.id)}
-                        >
-                          安装最新版
-                        </button>
-                      ) : null}
-                      {showCancelButton ? (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => void onCancelInstall()}
-                        >
-                          取消安装
-                        </button>
-                      ) : null}
-                      {showPathRepairButton ? (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => onOpenPathRepair(row)}
-                        >
-                          PATH repair instructions
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => void onDetect(row.id)}
-                      >
-                        重新检测
-                      </button>
-                    </div>
-                  )}
-                  {row.errorMessage ? (
-                    <div className="row-message">{row.errorMessage}</div>
-                  ) : null}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

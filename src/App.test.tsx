@@ -3,7 +3,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Event } from "@tauri-apps/api/event";
 import type { AppConfig } from "./types/config";
-import type { DetectResultEvent, InstallProgressEvent, InstallStatusEvent } from "./types/events";
+import type {
+  DetectResultEvent,
+  InstallProgressEvent,
+  InstallStatusEvent,
+} from "./types/events";
 import type { ToolStatus } from "./types/tool";
 
 const detectAllToolsMock = vi.fn<() => Promise<ToolStatus[]>>();
@@ -44,15 +48,9 @@ vi.mock("./lib/api", () => ({
   exportDiagnosticsLogZip: () => exportDiagnosticsLogZipMock(),
 }));
 
-let detectResultHandler:
-  | ((event: Event<DetectResultEvent>) => void)
-  | null = null;
-let installStatusHandler:
-  | ((event: Event<InstallStatusEvent>) => void)
-  | null = null;
-let installProgressHandler:
-  | ((event: Event<InstallProgressEvent>) => void)
-  | null = null;
+let detectResultHandler: ((event: Event<DetectResultEvent>) => void) | null = null;
+let installStatusHandler: ((event: Event<InstallStatusEvent>) => void) | null = null;
+let installProgressHandler: ((event: Event<InstallProgressEvent>) => void) | null = null;
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: (eventName: string, handler: (event: Event<unknown>) => void) => {
@@ -72,7 +70,9 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 import App from "./App";
 
-function makeTool(overrides: Partial<ToolStatus> & Pick<ToolStatus, "id" | "name" | "category">): ToolStatus {
+function makeTool(
+  overrides: Partial<ToolStatus> & Pick<ToolStatus, "id" | "name" | "category">,
+): ToolStatus {
   return {
     status: "installed",
     version: "1.0.0",
@@ -83,7 +83,7 @@ function makeTool(overrides: Partial<ToolStatus> & Pick<ToolStatus, "id" | "name
   };
 }
 
-describe("App shell migration", () => {
+describe("App UI migration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     detectResultHandler = null;
@@ -110,17 +110,39 @@ describe("App shell migration", () => {
     exportDiagnosticsLogZipMock.mockResolvedValue({ path: "C:\\logs\\diagnostics.zip" });
   });
 
-  it("renders the migrated app shell and dashboard summaries from real tool state", async () => {
+  it("renders the app shell and dashboard summaries from real tool state", async () => {
     detectAllToolsMock.mockResolvedValue([
       makeTool({ id: "winget", name: "winget", category: "base" }),
       makeTool({ id: "git", name: "Git / Git Bash", category: "base" }),
       makeTool({ id: "node", name: "Node.js", category: "base" }),
-      makeTool({ id: "npm", name: "npm", category: "base", status: "installed_but_path_missing" }),
-      makeTool({ id: "python", name: "Python 3.11", category: "base", status: "detect_failed" }),
-      makeTool({ id: "claude", name: "Claude Code", category: "ai", status: "missing", version: undefined, executablePath: undefined }),
+      makeTool({
+        id: "npm",
+        name: "npm",
+        category: "base",
+        status: "installed_but_path_missing",
+      }),
+      makeTool({
+        id: "python",
+        name: "Python 3.11",
+        category: "base",
+        status: "detect_failed",
+      }),
+      makeTool({
+        id: "claude",
+        name: "Claude Code",
+        category: "ai",
+        status: "missing",
+        version: undefined,
+        executablePath: undefined,
+      }),
       makeTool({ id: "codex", name: "Codex CLI", category: "ai" }),
       makeTool({ id: "opencode", name: "OpenCode", category: "ai", status: "broken" }),
-      makeTool({ id: "ccswitch", name: "ccSwitch", category: "ai", executablePath: "C:\\Tools\\ccswitch\\ccswitch.exe" }),
+      makeTool({
+        id: "ccswitch",
+        name: "ccSwitch",
+        category: "ai",
+        executablePath: "C:\\Tools\\ccswitch\\ccswitch.exe",
+      }),
     ]);
 
     render(<App />);
@@ -145,7 +167,12 @@ describe("App shell migration", () => {
 
   it("keeps dashboard quick actions wired to real commands", async () => {
     detectAllToolsMock.mockResolvedValue([
-      makeTool({ id: "ccswitch", name: "ccSwitch", category: "ai", executablePath: "C:\\Tools\\ccswitch\\ccswitch.exe" }),
+      makeTool({
+        id: "ccswitch",
+        name: "ccSwitch",
+        category: "ai",
+        executablePath: "C:\\Tools\\ccswitch\\ccswitch.exe",
+      }),
     ]);
     openCcSwitchMock.mockResolvedValue(undefined);
     openSubscriptionPageMock.mockResolvedValue(undefined);
@@ -166,7 +193,9 @@ describe("App shell migration", () => {
       expect(detectAllToolsMock).toHaveBeenCalledTimes(2);
     });
 
-    expect(screen.getByText("Diagnostics zip exported: C:\\logs\\diagnostics.zip")).toBeInTheDocument();
+    expect(
+      screen.getByText("Diagnostics zip exported: C:\\logs\\diagnostics.zip"),
+    ).toBeInTheDocument();
   });
 
   it("shows the non-admin banner and keeps the restart action", async () => {
@@ -185,7 +214,7 @@ describe("App shell migration", () => {
     });
   });
 
-  it("preserves legacy tool operations on the environment page inside the new shell", async () => {
+  it("renders the migrated environment page with real base tool actions and path repair", async () => {
     detectAllToolsMock.mockResolvedValue([
       makeTool({
         id: "git",
@@ -194,6 +223,31 @@ describe("App shell migration", () => {
         status: "missing",
         version: undefined,
         executablePath: undefined,
+      }),
+      makeTool({
+        id: "node",
+        name: "Node.js",
+        category: "base",
+        status: "installed",
+        version: "v24.1.0",
+        executablePath: "C:\\Program Files\\nodejs\\node.exe",
+      }),
+      makeTool({
+        id: "npm",
+        name: "npm",
+        category: "base",
+        status: "installed_but_path_missing",
+        version: "11.3.0",
+        executablePath: "%APPDATA%\\npm\\npm.cmd",
+      }),
+      makeTool({
+        id: "python",
+        name: "Python 3.11",
+        category: "base",
+        status: "detect_failed",
+        version: undefined,
+        executablePath: undefined,
+        errorMessage: "检测命令超时（5s）。可能受网络或杀毒软件影响。",
       }),
     ]);
     detectToolMock.mockResolvedValue(
@@ -208,11 +262,87 @@ describe("App shell migration", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /^基础环境/ }));
 
-    const section = await screen.findByRole("region", { name: "基础环境" });
-    fireEvent.click(within(section).getByRole("button", { name: "重新检测" }));
+    const envRegion = await screen.findByRole("region", { name: "基础环境" });
+    expect(within(envRegion).getByRole("heading", { name: "基础环境" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Git \/ Node \/ npm \/ Python 是 AI Coding CLI 的前置依赖/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Source control")).toBeInTheDocument();
+    expect(screen.getByText("Package manager")).toBeInTheDocument();
+    expect(screen.getByText("检测说明")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看 PATH 修复说明" }));
+    await screen.findByRole("dialog", { name: "PATH repair instructions" });
+
+    const gitRow = screen.getByText("Git / Git Bash").closest("tr");
+    expect(gitRow).not.toBeNull();
+    fireEvent.click(within(gitRow as HTMLTableRowElement).getByRole("button", { name: "重新检测" }));
 
     await waitFor(() => {
       expect(detectToolMock).toHaveBeenCalledWith("git");
+    });
+  });
+
+  it("renders the migrated ai tools page with real install actions and install context", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      makeTool({
+        id: "claude",
+        name: "Claude Code",
+        category: "ai",
+        status: "missing",
+        version: undefined,
+        executablePath: undefined,
+      }),
+      makeTool({
+        id: "codex",
+        name: "Codex CLI",
+        category: "ai",
+        status: "checking",
+        version: undefined,
+        executablePath: undefined,
+      }),
+      makeTool({
+        id: "opencode",
+        name: "OpenCode",
+        category: "ai",
+        status: "broken",
+        version: "0.9.2",
+        executablePath: "C:\\Users\\dev\\AppData\\Roaming\\npm\\opencode.cmd",
+        errorMessage: "命令存在，但版本探测失败。建议重新安装。",
+      }),
+      makeTool({
+        id: "ccswitch",
+        name: "ccSwitch",
+        category: "ai",
+        status: "installed",
+        version: "0.4.1",
+        executablePath: "C:\\Tools\\ccswitch\\ccswitch.exe",
+      }),
+    ]);
+    openCcSwitchMock.mockResolvedValue(undefined);
+    openSubscriptionPageMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /^AI 工具/ }));
+
+    const aiRegion = await screen.findByRole("region", { name: "AI 工具" });
+    expect(within(aiRegion).getByRole("heading", { name: "AI 工具" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Claude Code · Codex CLI · OpenCode · ccSwitch/),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("AI CLI").length).toBeGreaterThan(0);
+    expect(screen.getByText("GUI · 节点切换")).toBeInTheDocument();
+    expect(screen.getByText("安装说明")).toBeInTheDocument();
+    expect(screen.getByText("npm install -g <package>")).toBeInTheDocument();
+    expect(screen.getByText("不使用代理 (none)")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "打开 ccSwitch" }));
+    fireEvent.click(screen.getByRole("button", { name: "打开订阅页" }));
+
+    await waitFor(() => {
+      expect(openCcSwitchMock).toHaveBeenCalledTimes(1);
+      expect(openSubscriptionPageMock).toHaveBeenCalledTimes(1);
     });
   });
 
