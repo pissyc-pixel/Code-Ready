@@ -9,6 +9,8 @@ mod python;
 mod shared;
 mod winget;
 
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
@@ -131,7 +133,9 @@ pub(crate) fn has_node_runtime() -> Result<bool, String> {
 }
 
 #[allow(dead_code)]
-pub(crate) fn npm_global_probe_path(command_name: &str) -> Result<Option<std::path::PathBuf>, String> {
+pub(crate) fn npm_global_probe_path(
+    command_name: &str,
+) -> Result<Option<std::path::PathBuf>, String> {
     npm_global::probe_npm_global_command(command_name).map_err(|error| error.to_string())
 }
 
@@ -186,7 +190,10 @@ pub(crate) fn recheck_ai_npm_command(command_name: &str, display_name: &str) -> 
     );
     let output = version_result.ok().flatten();
     let suggestion = if matches!(status, ToolInstallStatus::InstalledButPathMissing) {
-        Some("已探测到 npm 全局命令，但当前 PATH 可能未刷新。".to_string())
+        Some(
+            "Detected npm global command files, but the current PATH may not include them yet."
+                .to_string(),
+        )
     } else {
         None
     };
@@ -223,7 +230,7 @@ pub(crate) fn resolve_ccswitch_path(
 }
 
 fn detect_npm() -> ToolStatus {
-    let where_paths = match shared::where_command("npm") {
+    let where_npm_cmd_paths = match shared::where_command("npm.cmd") {
         Ok(paths) => paths,
         Err(error) => {
             return shared::build_tool_status(
@@ -240,11 +247,8 @@ fn detect_npm() -> ToolStatus {
         }
     };
 
-    let common_npm = shared::program_files_dir()
-        .map(|path| path.join("nodejs").join("npm.cmd"))
-        .filter(|path| path.exists());
-    let npm_global_probe = match npm_global::probe_npm_global_command("npm") {
-        Ok(path) => path,
+    let where_npm_paths = match shared::where_command("npm") {
+        Ok(paths) => paths,
         Err(error) => {
             return shared::build_tool_status(
                 "npm",
@@ -253,28 +257,121 @@ fn detect_npm() -> ToolStatus {
                 ToolInstallStatus::DetectFailed,
                 None,
                 None,
-                DetectionMethod::NpmGlobalProbe,
+                DetectionMethod::Combined,
                 Some(error.to_string()),
                 None,
             )
         }
     };
-    let path_probe = npm_global_probe.or(common_npm);
 
-    let version_result = if !where_paths.is_empty() {
-        shared::run_command("npm", &["-v"]).map(Some)
-    } else if let Some(path) = path_probe.as_ref() {
+    let npm_global_probe = npm_global::probe_npm_global_command("npm").unwrap_or(None);
+    let candidates = npm_probe_candidates(
+        &where_npm_cmd_paths,
+        &where_npm_paths,
+        shared::program_files_dir(),
+        shared::appdata_dir(),
+        npm_global_probe,
+    );
+    let path_probe = shared::first_existing_path(&candidates);
+    let where_hit = !where_npm_cmd_paths.is_empty() || !where_npm_paths.is_empty();
+    let version_result = if let Some(path) = path_probe.as_ref() {
         shared::run_path_command(path, &["-v"]).map(Some)
     } else {
         Ok(None)
     };
-
-    let status = shared::resolve_cli_status(!where_paths.is_empty(), path_probe.is_some(), version_result.clone());
-    let output = version_result.ok().flatten();
-    let suggestion = if matches!(status, ToolInstallStatus::InstalledButPathMissing) {
-        Some("检测到 npm 全局命令，但当前 PATH 可能未刷新。".to_string())
+    let node_on_path = has_node_runtime().unwrap_or(false);
+    let missing_error_message = if node_on_path && path_probe.is_none() {
+        Some(
+            "Node.js is installed, but npm was not found in PATH or common install locations."
+                .to_string(),
+        )
     } else {
         None
+    };
+
+    build_npm_status(
+        where_hit,
+        path_probe,
+        version_result,
+        node_on_path,
+        missing_error_message,
+    )
+}
+
+fn npm_probe_candidates(
+    where_npm_cmd_paths: &[String],
+    where_npm_paths: &[String],
+    program_files_dir: Option<PathBuf>,
+    appdata_dir: Option<PathBuf>,
+    npm_global_probe: Option<PathBuf>,
+) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    for candidate in where_npm_cmd_paths
+        .iter()
+        .chain(where_npm_paths.iter())
+        .map(PathBuf::from)
+    {
+        push_unique_path(&mut candidates, candidate);
+    }
+
+    if let Some(program_files_dir) = program_files_dir {
+        push_unique_path(
+            &mut candidates,
+            program_files_dir.join("nodejs").join("npm.cmd"),
+        );
+    }
+
+    if let Some(appdata_dir) = appdata_dir {
+        push_unique_path(&mut candidates, appdata_dir.join("npm").join("npm.cmd"));
+    }
+
+    if let Some(npm_global_probe) = npm_global_probe {
+        push_unique_path(&mut candidates, npm_global_probe);
+    }
+
+    candidates
+}
+
+fn push_unique_path(paths: &mut Vec<PathBuf>, candidate: PathBuf) {
+    if !paths.iter().any(|existing| existing == &candidate) {
+        paths.push(candidate);
+    }
+}
+
+fn build_npm_status(
+    where_hit: bool,
+    path_probe: Option<PathBuf>,
+    version_result: Result<Option<shared::CommandOutput>, shared::ProbeError>,
+    node_on_path: bool,
+    missing_error_message: Option<String>,
+) -> ToolStatus {
+    let status = shared::resolve_cli_status(where_hit, path_probe.is_some(), version_result.clone());
+    let output = version_result.clone().ok().flatten();
+    let detection_method = if where_hit {
+        DetectionMethod::Which
+    } else if path_probe.is_some() {
+        DetectionMethod::PathProbe
+    } else {
+        DetectionMethod::Combined
+    };
+    let suggestion = if matches!(status, ToolInstallStatus::InstalledButPathMissing) {
+        Some("Detected npm on disk, but the current PATH may not include it yet.".to_string())
+    } else if matches!(status, ToolInstallStatus::Missing) && node_on_path {
+        Some(
+            "Node.js was detected. Reinstall Node.js or repair npm manually; this app will not change PATH automatically."
+                .to_string(),
+        )
+    } else {
+        None
+    };
+    let error_message = match (&version_result, &status) {
+        (Err(error), _) => Some(error.to_string()),
+        (Ok(Some(output)), ToolInstallStatus::Broken | ToolInstallStatus::DetectFailed) => {
+            shared::command_error_message(output)
+        }
+        (Ok(None), ToolInstallStatus::Missing) => missing_error_message,
+        _ => None,
     };
 
     shared::build_tool_status(
@@ -283,16 +380,78 @@ fn detect_npm() -> ToolStatus {
         ToolCategory::Base,
         status,
         output.as_ref().and_then(shared::extract_version_line),
-        where_paths
-            .first()
-            .cloned()
-            .or_else(|| path_probe.as_ref().map(|path| path.display().to_string())),
-        DetectionMethod::NpmGlobalProbe,
-        output
-            .as_ref()
-            .filter(|item| item.exit_code != 0)
-            .map(|item| item.stderr.trim().to_string())
-            .filter(|message| !message.is_empty()),
+        path_probe.as_ref().map(|path| path.display().to_string()),
+        detection_method,
+        error_message,
         suggestion,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_npm_status, npm_probe_candidates, DetectionMethod, ToolInstallStatus};
+    use crate::detector::shared::CommandOutput;
+    use std::path::PathBuf;
+
+    #[test]
+    fn npm_probe_candidates_prefer_npm_cmd_and_program_files_path() {
+        let candidates = npm_probe_candidates(
+            &[r"C:\Users\Tester\AppData\Roaming\npm\npm.cmd".to_string()],
+            &[r"C:\Users\Tester\AppData\Roaming\npm\npm".to_string()],
+            Some(PathBuf::from(r"C:\Program Files")),
+            Some(PathBuf::from(r"C:\Users\Tester\AppData\Roaming")),
+            Some(PathBuf::from(r"D:\extra\npm.cmd")),
+        );
+
+        assert_eq!(
+            candidates[0],
+            PathBuf::from(r"C:\Users\Tester\AppData\Roaming\npm\npm.cmd")
+        );
+        assert!(candidates.contains(&PathBuf::from(
+            r"C:\Program Files\nodejs\npm.cmd"
+        )));
+    }
+
+    #[test]
+    fn npm_status_is_not_detect_failed_when_node_exists_but_npm_prefix_probe_fails() {
+        let status = build_npm_status(
+            false,
+            None,
+            Ok(None),
+            true,
+            Some(
+                "Node.js is installed, but npm was not found in PATH or common install locations."
+                    .to_string(),
+            ),
+        );
+
+        assert!(!matches!(status.status, ToolInstallStatus::DetectFailed));
+        assert!(matches!(status.status, ToolInstallStatus::Missing));
+        assert!(status
+            .error_message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Node.js"));
+    }
+
+    #[test]
+    fn npm_status_marks_path_missing_when_specific_npm_cmd_path_works_without_where_hit() {
+        let status = build_npm_status(
+            false,
+            Some(PathBuf::from(r"C:\Program Files\nodejs\npm.cmd")),
+            Ok(Some(CommandOutput {
+                exit_code: 0,
+                stdout: "10.8.0".to_string(),
+                stderr: String::new(),
+            })),
+            false,
+            None,
+        );
+
+        assert!(matches!(
+            status.status,
+            ToolInstallStatus::InstalledButPathMissing
+        ));
+        assert!(matches!(status.detection_method, DetectionMethod::PathProbe));
+    }
 }

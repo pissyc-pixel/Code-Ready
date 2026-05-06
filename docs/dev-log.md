@@ -3607,3 +3607,83 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - No `.claude` committed
 - No `src-tauri/target` committed
 - No V1.1 work mixed in
+
+# V1.0 Runtime Hotfix - Commit 2
+
+## Time
+
+2026-05-06 (Asia/Shanghai)
+
+## Commit
+
+- Target commit: `fix: harden npm detection in packaged app`
+
+## Problem
+
+- Packaged V1.0 app could not reliably detect npm.
+- Detection depended too much on `where.exe npm` and `npm prefix -g`.
+- Windows `npm.cmd` was not treated as the preferred executable probe.
+
+## Cause
+
+- `detect_npm()` preferred a bare `npm -v` call whenever `where npm` returned something.
+- Probe ordering did not prioritize `npm.cmd`.
+- `Program Files\\nodejs\\npm.cmd` and `%APPDATA%\\npm\\npm.cmd` were not part of a clear, stable priority list.
+- The npm global prefix probe was useful as a fallback hint, but it was too close to the critical path for packaged-runtime detection.
+
+## Modified files
+
+- `src-tauri/src/detector/mod.rs`
+- `src-tauri/src/detector/npm_global.rs`
+- `docs/dev-log.md`
+
+## Change summary
+
+- Prioritized Windows npm detection with this order:
+  - `where.exe npm.cmd`
+  - `where.exe npm`
+  - `C:\Program Files\nodejs\npm.cmd`
+  - `%APPDATA%\npm\npm.cmd`
+  - extra npm-global probe results
+- Executed npm version checks through the selected concrete path instead of a bare `npm -v`.
+- Reduced `npm prefix -g` to a non-fatal extra probe source.
+- Added a clearer missing-state message when Node.js exists but npm cannot be found.
+- Preserved PATH-repair semantics by returning `installed_but_path_missing` when npm works from a concrete path but is not found via PATH.
+
+## Added tests
+
+- Windows npm candidate ordering prefers `npm.cmd`
+- `C:\Program Files\nodejs\npm.cmd` participates as a path probe
+- npm-global prefix probe failure no longer implies `detect_failed`
+- explicit npm path probe without PATH hit returns `installed_but_path_missing`
+
+## Validation commands
+
+```powershell
+npx vitest run src/App.test.tsx --reporter=verbose
+npm run build
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+## Validation results
+
+- Frontend tests: passed (`14 passed`)
+- Frontend build: passed
+- cargo check: passed
+- cargo test: passed (`93 passed`)
+
+## Runtime status after this commit
+
+- Whether command windows still pop: handled by Commit 1; packaged runtime still needs final post-build validation
+- npm detection result: hardened in code and covered by new Rust tests
+- ccSwitch detection result: not changed in this commit
+- AI CLI detection result: not changed in this commit
+
+## Guardrails
+
+- No PRD input file committed
+- No `.claude` committed
+- No `src-tauri/target` committed
+- No AI CLI detection changes mixed into this commit
