@@ -57,7 +57,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -85,13 +86,18 @@ button:disabled {
   transform: none;
 }
 
-input {
+input,
+select {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 0.85rem 0.95rem;
   background: #fff;
   color: var(--text-primary);
+}
+
+select {
+  appearance: none;
 }
 
 code {
@@ -534,10 +540,116 @@ ol {
   gap: 18px;
 }
 
+.alert-banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-soft);
+}
+
+.alert-banner strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.alert-banner p {
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+
+.alert-banner.info {
+  border-color: rgba(63, 77, 196, 0.18);
+  background: var(--brand-soft);
+}
+
+.alert-banner.warning {
+  border-color: rgba(183, 121, 31, 0.24);
+  background: var(--warning-soft);
+}
+
+.alert-banner-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .tool-inline-note {
   margin-bottom: 16px;
   color: var(--text-secondary);
   font-size: 0.94rem;
+}
+
+.ccswitch-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.status-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.settings-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field > span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.choice-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(250, 251, 252, 0.92);
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.choice-card.is-selected {
+  border-color: rgba(63, 77, 196, 0.28);
+  background: linear-gradient(180deg, rgba(63, 77, 196, 0.12), rgba(255, 255, 255, 0.98));
+  color: #24308e;
+}
+
+.choice-card:hover {
+  background: rgba(238, 241, 255, 0.8);
+}
+
+.choice-card-title {
+  display: block;
+  font-weight: 700;
+}
+
+.choice-card-description {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .tool-info-grid {
@@ -812,7 +924,9 @@ th {
   .dashboard-grid,
   .tool-page-layout,
   .network-card,
-  .repair-grid {
+  .repair-grid,
+  .ccswitch-status-grid,
+  .choice-grid {
     grid-template-columns: 1fr;
   }
 
@@ -827,7 +941,8 @@ th {
 
   .top-bar-meta,
   .hero-actions,
-  .card-actions {
+  .card-actions,
+  .alert-banner-actions {
     margin-top: 16px;
   }
 

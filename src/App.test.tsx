@@ -100,9 +100,19 @@ describe("App UI migration", () => {
         npmRegistry: "default",
       },
       ccswitchPath: undefined,
-      ccswitchDownloadSources: [],
+      ccswitchDownloadSources: [{ name: "mirror-a", url: "https://a", priority: 1, enabled: true, kind: "direct_exe" }],
       subscriptionPageUrl: "https://nodes.example.com/dashboard",
     });
+    updateConfigMock.mockImplementation(async (patch: Partial<AppConfig>) => ({
+      installNetwork: {
+        mode: "none",
+        npmRegistry: "default",
+        ...(patch.installNetwork ?? {}),
+      },
+      ccswitchPath: patch.ccswitchPath,
+      ccswitchDownloadSources: [{ name: "mirror-a", url: "https://a", priority: 1, enabled: true, kind: "direct_exe" }],
+      subscriptionPageUrl: patch.subscriptionPageUrl ?? "https://nodes.example.com/dashboard",
+    }));
     isAdminMock.mockResolvedValue(true);
     getLogPreviewMock.mockResolvedValue(["existing log line"]);
     openFullLogFileMock.mockResolvedValue(undefined);
@@ -196,22 +206,6 @@ describe("App UI migration", () => {
     expect(
       screen.getByText("Diagnostics zip exported: C:\\logs\\diagnostics.zip"),
     ).toBeInTheDocument();
-  });
-
-  it("shows the non-admin banner and keeps the restart action", async () => {
-    isAdminMock.mockResolvedValue(false);
-    detectAllToolsMock.mockResolvedValue([]);
-    restartAsAdminMock.mockResolvedValue(undefined);
-
-    render(<App />);
-
-    fireEvent.click(await screen.findByRole("button", { name: /^设置/ }));
-    await screen.findByText("当前为标准用户运行");
-    fireEvent.click(screen.getByRole("button", { name: "以管理员身份重启" }));
-
-    await waitFor(() => {
-      expect(restartAsAdminMock).toHaveBeenCalledTimes(1);
-    });
   });
 
   it("renders the migrated environment page with real base tool actions and path repair", async () => {
@@ -329,7 +323,7 @@ describe("App UI migration", () => {
     const aiRegion = await screen.findByRole("region", { name: "AI 工具" });
     expect(within(aiRegion).getByRole("heading", { name: "AI 工具" })).toBeInTheDocument();
     expect(
-      screen.getByText(/Claude Code · Codex CLI · OpenCode · ccSwitch/),
+      screen.getByText(/Claude Code \/ Codex CLI \/ OpenCode \/ ccSwitch/),
     ).toBeInTheDocument();
     expect(screen.getAllByText("AI CLI").length).toBeGreaterThan(0);
     expect(screen.getByText("GUI · 节点切换")).toBeInTheDocument();
@@ -343,6 +337,115 @@ describe("App UI migration", () => {
     await waitFor(() => {
       expect(openCcSwitchMock).toHaveBeenCalledTimes(1);
       expect(openSubscriptionPageMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("renders the migrated ccswitch page with real config actions", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      makeTool({
+        id: "ccswitch",
+        name: "ccSwitch",
+        category: "ai",
+        version: "0.4.1",
+        executablePath: "C:\\Tools\\ccswitch\\ccswitch.exe",
+      }),
+    ]);
+    updateConfigMock.mockResolvedValue({
+      installNetwork: {
+        mode: "none",
+        npmRegistry: "default",
+      },
+      ccswitchPath: "C:\\Program Files\\ccswitch\\ccswitch.exe",
+      ccswitchDownloadSources: [{ name: "mirror-a", url: "https://a", priority: 1, enabled: true, kind: "direct_exe" }],
+      subscriptionPageUrl: "https://nodes.example.com/dashboard",
+    });
+    detectToolMock.mockResolvedValue(
+      makeTool({
+        id: "ccswitch",
+        name: "ccSwitch",
+        category: "ai",
+        version: "0.4.1",
+        executablePath: "C:\\Program Files\\ccswitch\\ccswitch.exe",
+      }),
+    );
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /^ccSwitch/ }));
+    const ccSwitchRegion = await screen.findByRole("region", { name: "ccSwitch" });
+    expect(
+      within(ccSwitchRegion).getByRole("heading", { name: "ccSwitch" }),
+    ).toBeInTheDocument();
+
+    const pathInput = screen.getByLabelText("可执行文件路径");
+    fireEvent.change(pathInput, {
+      target: { value: "C:\\Program Files\\ccswitch\\ccswitch.exe" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "保存" })[0]);
+
+    await waitFor(() => {
+      expect(updateConfigMock).toHaveBeenCalledWith({
+        ccswitchPath: "C:\\Program Files\\ccswitch\\ccswitch.exe",
+      });
+      expect(detectToolMock).toHaveBeenCalledWith("ccswitch");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "打开 ccSwitch" }));
+    fireEvent.click(screen.getByRole("button", { name: "打开" }));
+
+    await waitFor(() => {
+      expect(openCcSwitchMock).toHaveBeenCalledTimes(1);
+      expect(openSubscriptionPageMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("renders the migrated settings page with real config and admin actions", async () => {
+    isAdminMock.mockResolvedValue(false);
+    detectAllToolsMock.mockResolvedValue([]);
+    updateConfigMock.mockResolvedValue({
+      installNetwork: {
+        mode: "manual_proxy",
+        npmRegistry: "custom",
+        proxyUrl: "http://127.0.0.1:7890",
+        customNpmRegistry: "https://registry.example.com/",
+      },
+      ccswitchDownloadSources: [],
+      subscriptionPageUrl: "https://nodes.example.com/dashboard",
+    });
+    restartAsAdminMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /^设置/ }));
+    await screen.findByRole("heading", { name: "安装网络" });
+
+    fireEvent.click(screen.getByRole("button", { name: /手动代理/ }));
+    fireEvent.change(await screen.findByLabelText("代理 URL"), {
+      target: { value: "http://127.0.0.1:7890" },
+    });
+    fireEvent.change(screen.getByLabelText("npm Registry"), {
+      target: { value: "custom" },
+    });
+    fireEvent.change(screen.getByLabelText("自定义 registry URL"), {
+      target: { value: "https://registry.example.com/" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存设置" }));
+
+    await waitFor(() => {
+      expect(updateConfigMock).toHaveBeenCalledWith({
+        installNetwork: {
+          mode: "manual_proxy",
+          proxyUrl: "http://127.0.0.1:7890",
+          npmRegistry: "custom",
+          customNpmRegistry: "https://registry.example.com/",
+        },
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "以管理员身份重启" }));
+
+    await waitFor(() => {
+      expect(restartAsAdminMock).toHaveBeenCalledTimes(1);
     });
   });
 

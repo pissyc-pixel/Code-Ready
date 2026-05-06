@@ -25,13 +25,16 @@ import {
   updateConfig,
 } from "./lib/api";
 import AiToolsPage from "./pages/AiToolsPage";
+import CCSwitchPage from "./pages/CCSwitchPage";
 import DashboardPage from "./pages/DashboardPage";
 import EnvPage from "./pages/EnvPage";
-import { defaultAppConfig, type AppConfig } from "./types/config";
-import type {
-  InstallStatusEvent,
-  InstallTaskViewState,
-} from "./types/install";
+import SettingsPage from "./pages/SettingsPage";
+import {
+  defaultAppConfig,
+  type AppConfig,
+  type InstallNetworkConfig,
+} from "./types/config";
+import type { InstallStatusEvent, InstallTaskViewState } from "./types/install";
 import type { ToolId, ToolStatus } from "./types/tool";
 
 const initialRows = [...mockBaseTools, ...mockAiTools];
@@ -69,7 +72,7 @@ const VIEW_META: Record<AppViewId, { title: string; description: string }> = {
   },
   ccswitch: {
     title: "ccSwitch",
-    description: "路径保存、启动入口和订阅页 URL 仍然走现有状态与 invoke 调用。",
+    description: "路径保存、启动入口和订阅页 URL 继续走现有状态与 invoke 调用。",
   },
   logs: {
     title: "日志与诊断",
@@ -101,10 +104,7 @@ function App() {
   const [pathRepairCopyState, setPathRepairCopyState] = useState<
     "idle" | "copied" | "failed"
   >("idle");
-  const [adminState, setAdminState] = useState<{
-    checked: boolean;
-    isAdmin: boolean;
-  }>({
+  const [adminState, setAdminState] = useState({
     checked: false,
     isAdmin: false,
   });
@@ -334,6 +334,13 @@ function App() {
     setQuickActionMessage("节点订阅网页已保存。");
   }
 
+  async function saveInstallNetwork(nextInstallNetwork: InstallNetworkConfig) {
+    const nextConfig = await updateConfig({
+      installNetwork: nextInstallNetwork,
+    });
+    setConfig(nextConfig);
+  }
+
   async function runOpenCcSwitch() {
     try {
       await openCcSwitch();
@@ -456,91 +463,20 @@ function App() {
 
   function renderCcSwitchPage() {
     return (
-      <div className="page-stack">
-        <section className="page-section panel" role="region" aria-label="ccSwitch">
-          <div className="panel-header">
-            <div>
-              <h2>ccSwitch 路径</h2>
-              <p>
-                保存手动的 ccSwitch 可执行文件路径，然后重新检测或直接打开。检测仍然只做路径探测，不会自动拉起 GUI。
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void runOpenCcSwitch()}
-              disabled={!ccswitchRow?.executablePath}
-            >
-              打开 ccSwitch
-            </button>
-          </div>
-          <div className="network-card single-column">
-            <label className="network-stat" htmlFor="ccswitch-path-input">
-              <span>ccSwitch executable</span>
-              <input
-                id="ccswitch-path-input"
-                type="text"
-                value={ccswitchPathInput}
-                onChange={(event) => setCcswitchPathInput(event.target.value)}
-                placeholder="C:\\Program Files\\ccswitch\\ccswitch.exe"
-              />
-            </label>
-            <div className="action-group">
-              <button type="button" onClick={() => void saveCcSwitchPath()}>
-                保存 ccSwitch 路径
-              </button>
-              <button type="button" onClick={() => void runDetectOne("ccswitch")}>
-                重新检测 ccSwitch
-              </button>
-            </div>
-            <p className="tool-detail">
-              当前配置了 {config.ccswitchDownloadSources.length} 个下载源。如果所有源都失败，或者还没有配置下载源，请直接保存手动路径。
-            </p>
-          </div>
-        </section>
-
-        <section className="page-section panel" role="region" aria-label="节点订阅网页">
-          <div className="panel-header">
-            <div>
-              <h2>节点订阅网页</h2>
-              <p>这里只保存和打开网页入口，不解析订阅、不下载节点、不设置代理。</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void runOpenSubscriptionPage()}
-              disabled={!config.subscriptionPageUrl}
-            >
-              打开订阅页
-            </button>
-          </div>
-          <div className="network-card single-column">
-            <label className="network-stat" htmlFor="subscription-page-url-input">
-              <span>节点订阅网页</span>
-              <input
-                id="subscription-page-url-input"
-                type="url"
-                value={subscriptionPageUrlInput}
-                onChange={(event) => setSubscriptionPageUrlInput(event.target.value)}
-                placeholder="https://example.com/dashboard"
-              />
-            </label>
-            <div className="action-group">
-              <button type="button" onClick={() => void saveSubscriptionPageUrl()}>
-                保存订阅网页
-              </button>
-              <button
-                type="button"
-                onClick={() => void runOpenSubscriptionPage()}
-                disabled={!config.subscriptionPageUrl}
-              >
-                打开订阅页
-              </button>
-            </div>
-            <p className="tool-detail">
-              留空表示不配置；打开时后端会校验必须是 http:// 或 https:// URL。
-            </p>
-          </div>
-        </section>
-      </div>
+      <CCSwitchPage
+        row={ccswitchRow}
+        ccswitchPathInput={ccswitchPathInput}
+        subscriptionPageUrlInput={subscriptionPageUrlInput}
+        downloadSourceCount={config.ccswitchDownloadSources.length}
+        quickActionMessage={quickActionMessage}
+        onPathInputChange={setCcswitchPathInput}
+        onSubscriptionUrlInputChange={setSubscriptionPageUrlInput}
+        onSavePath={saveCcSwitchPath}
+        onSaveSubscriptionPageUrl={saveSubscriptionPageUrl}
+        onOpenCcSwitch={runOpenCcSwitch}
+        onOpenSubscriptionPage={runOpenSubscriptionPage}
+        onDetectCcSwitch={() => runDetectOne("ccswitch")}
+      />
     );
   }
 
@@ -591,45 +527,13 @@ function App() {
 
   function renderSettingsPage() {
     return (
-      <div className="page-stack">
-        {!adminState.isAdmin && adminState.checked ? (
-          <section className="page-section panel warning-panel" role="region" aria-label="管理员权限">
-            <div className="panel-header">
-              <div>
-                <h2>当前为标准用户运行</h2>
-                <p>
-                  安装某些工具时会弹出 Windows UAC。你也可以现在直接以管理员身份重启当前应用。
-                </p>
-              </div>
-              <button type="button" onClick={() => void runRestartAsAdmin()}>
-                以管理员身份重启
-              </button>
-            </div>
-          </section>
-        ) : null}
-
-        <section className="page-section panel" role="region" aria-label="设置">
-          <div className="panel-header">
-            <div>
-              <h2>安装网络</h2>
-              <p>这里只影响客户端发起的安装命令。winget 不保证读取这里的代理设置。</p>
-            </div>
-          </div>
-          <div className="network-card">
-            <div className="network-stat">
-              <span>当前模式</span>
-              <strong>{config.installNetwork.mode}</strong>
-            </div>
-            <div className="network-stat">
-              <span>npm registry</span>
-              <strong>{npmRegistryLabel}</strong>
-            </div>
-            <p className="network-warning">
-              这一轮还没有完整迁移设置表单，先保留真实配置读取结果。
-            </p>
-          </div>
-        </section>
-      </div>
+      <SettingsPage
+        config={config}
+        adminChecked={adminState.checked}
+        isAdmin={adminState.isAdmin}
+        onSaveInstallNetwork={saveInstallNetwork}
+        onRestartAsAdmin={runRestartAsAdmin}
+      />
     );
   }
 

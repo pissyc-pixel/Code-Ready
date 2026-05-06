@@ -45,7 +45,8 @@ function EnvPage({
           <div>
             <h2>基础环境</h2>
             <p>
-              Git / Node / npm / Python 是 AI Coding CLI 的前置依赖。每项独立检测、独立安装。
+              Git / Node / npm / Python 是 AI Coding CLI 的前置依赖。每项独立检测、
+              独立安装。
             </p>
           </div>
           <div className="action-group">

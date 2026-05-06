@@ -31,7 +31,9 @@ function SideNav({ items, activeItemId, onSelect }: SideNavProps) {
               onClick={() => onSelect(item.id)}
             >
               <span className="nav-button-label">{item.label}</span>
-              {item.caption ? <span className="nav-button-caption">{item.caption}</span> : null}
+              {item.caption ? (
+                <span className="nav-button-caption">{item.caption}</span>
+              ) : null}
             </button>
           );
         })}

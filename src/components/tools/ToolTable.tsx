@@ -117,7 +117,7 @@ function ToolTable({
                           disabled={isOtherInstallRunning}
                           onClick={() => void onReinstall(row.id)}
                         >
-                          重试安装
+                          重装
                         </button>
                       ) : null}
                       {showInstallLatestButton ? (

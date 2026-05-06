@@ -136,11 +136,7 @@ function DashboardPage({
               >
                 打开订阅页
               </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => onNavigate("logs")}
-              >
+              <button type="button" className="ghost-button" onClick={() => onNavigate("logs")}>
                 查看日志
               </button>
             </div>
@@ -221,11 +217,7 @@ function DashboardPage({
             ))}
           </div>
           <div className="card-footer-actions">
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => onNavigate("aiTools")}
-            >
+            <button type="button" className="ghost-button" onClick={() => onNavigate("aiTools")}>
               前往 AI 工具页
             </button>
           </div>
@@ -266,10 +258,7 @@ function DashboardPage({
         >
           <div className="card-footer-actions">
             <button type="button" className="ghost-button" onClick={() => onNavigate("logs")}>
-              跳到日志页
-            </button>
-            <button type="button" className="ghost-button" onClick={() => onNavigate("aiTools")}>
-              打开 AI 工具页
+              前往日志页
             </button>
           </div>
         </Card>
@@ -278,15 +267,90 @@ function DashboardPage({
   );
 }
 
-function StatTile({
-  label,
-  value,
-  tone,
-}: {
+type BuildNextActionsArgs = {
+  rows: ToolStatus[];
+  config: AppConfig;
+  onDetect: (toolId: ToolId) => Promise<void>;
+  onInstall: (toolId: ToolId) => Promise<void>;
+  onReinstall: (toolId: ToolId) => Promise<void>;
+  onNavigate: (pageId: string) => void;
+};
+
+function buildNextActions({
+  rows,
+  config,
+  onDetect,
+  onInstall,
+  onReinstall,
+  onNavigate,
+}: BuildNextActionsArgs): DashboardAction[] {
+  const actions: DashboardAction[] = [];
+
+  for (const row of rows) {
+    if (row.status === "missing") {
+      actions.push({
+        id: `${row.id}-install`,
+        title: `安装 ${row.name}`,
+        description: "工具缺失，建议先补齐安装。",
+        actionLabel: "立即安装",
+        action: () => void onInstall(row.id),
+      });
+      continue;
+    }
+
+    if (row.status === "broken") {
+      actions.push({
+        id: `${row.id}-reinstall`,
+        title: `重装 ${row.name}`,
+        description: row.errorMessage ?? "版本探测或执行异常，建议重装。",
+        actionLabel: "重新安装",
+        action: () => void onReinstall(row.id),
+      });
+      continue;
+    }
+
+    if (row.status === "detect_failed" || row.status === "install_failed") {
+      actions.push({
+        id: `${row.id}-detect`,
+        title: `重新检测 ${row.name}`,
+        description: row.errorMessage ?? "最近一次检测失败，请重新确认。",
+        actionLabel: "重新检测",
+        action: () => void onDetect(row.id),
+      });
+      continue;
+    }
+
+    if (row.status === "installed_but_path_missing") {
+      actions.push({
+        id: `${row.id}-logs`,
+        title: `处理 ${row.name} 的 PATH 缺失`,
+        description: row.errorMessage ?? "工具已安装，但当前终端 PATH 尚未刷新。",
+        actionLabel: "查看基础环境页",
+        action: () => onNavigate("environment"),
+      });
+    }
+  }
+
+  if (!config.subscriptionPageUrl) {
+    actions.push({
+      id: "subscription-url",
+      title: "补充订阅页入口",
+      description: "当前还没有配置订阅页 URL，后续将无法一键打开。",
+      actionLabel: "前往 ccSwitch 页",
+      action: () => onNavigate("ccswitch"),
+    });
+  }
+
+  return actions.slice(0, 5);
+}
+
+type StatTileProps = {
   label: string;
   value: number;
   tone: "success" | "warning" | "info" | "muted";
-}) {
+};
+
+function StatTile({ label, value, tone }: StatTileProps) {
   return (
     <div className={`stat-tile stat-${tone}`}>
       <span>{label}</span>
@@ -298,96 +362,14 @@ function StatTile({
 function ToolOverviewRow({ row }: { row: ToolStatus }) {
   return (
     <div className="tool-overview-row">
-      <div className="tool-overview-main">
-        <div className="tool-overview-heading">
-          <strong>{row.name}</strong>
-          <StatusBadge status={row.status} />
-        </div>
-        <p>
-          {row.version ?? "未检测到版本"} · {row.executablePath ?? "未检测到路径"}
-        </p>
-        {row.errorMessage ? <p className="tool-overview-error">{row.errorMessage}</p> : null}
+      <div className="tool-overview-heading">
+        <strong>{row.name}</strong>
+        <StatusBadge status={row.status} />
       </div>
+      <p>{row.executablePath ?? row.version ?? "等待检测结果"}</p>
+      {row.errorMessage ? <p className="tool-overview-error">{row.errorMessage}</p> : null}
     </div>
   );
-}
-
-function buildNextActions({
-  rows,
-  config,
-  onDetect,
-  onInstall,
-  onReinstall,
-  onNavigate,
-}: {
-  rows: ToolStatus[];
-  config: AppConfig;
-  onDetect: (toolId: ToolId) => Promise<void>;
-  onInstall: (toolId: ToolId) => Promise<void>;
-  onReinstall: (toolId: ToolId) => Promise<void>;
-  onNavigate: (pageId: string) => void;
-}): DashboardAction[] {
-  const items: DashboardAction[] = [];
-
-  const brokenTool = rows.find((row) => row.status === "broken");
-  if (brokenTool) {
-    items.push({
-      id: `${brokenTool.id}-broken`,
-      title: `${brokenTool.name} 需要修复`,
-      description:
-        brokenTool.errorMessage ??
-        "命令存在，但版本探测失败或无法正常执行。",
-      actionLabel: "重试安装",
-      action: () => void onReinstall(brokenTool.id),
-    });
-  }
-
-  const pathTool = rows.find((row) => row.status === "installed_but_path_missing");
-  if (pathTool) {
-    items.push({
-      id: `${pathTool.id}-path`,
-      title: `${pathTool.name} 需要处理 PATH`,
-      description: "可执行文件已存在，但当前终端 PATH 还没有刷新。",
-      actionLabel: "前往基础环境页",
-      action: () => onNavigate("environment"),
-    });
-  }
-
-  const missingAiTool = rows.find(
-    (row) => row.category === "ai" && row.status === "missing",
-  );
-  if (missingAiTool) {
-    items.push({
-      id: `${missingAiTool.id}-missing`,
-      title: `安装 ${missingAiTool.name}`,
-      description: `${missingAiTool.name} 当前未安装，可以直接沿用现有安装逻辑。`,
-      actionLabel: "立即安装",
-      action: () => void onInstall(missingAiTool.id),
-    });
-  }
-
-  const detectFailedTool = rows.find((row) => row.status === "detect_failed");
-  if (detectFailedTool) {
-    items.push({
-      id: `${detectFailedTool.id}-detect`,
-      title: `重新检测 ${detectFailedTool.name}`,
-      description: detectFailedTool.errorMessage ?? "上次检测未返回结果或超时。",
-      actionLabel: "重新检测",
-      action: () => void onDetect(detectFailedTool.id),
-    });
-  }
-
-  if (!config.subscriptionPageUrl) {
-    items.push({
-      id: "subscription-settings",
-      title: "保存节点订阅网页（可选）",
-      description: "保存后可以在 ccSwitch 页或首页快捷入口里一键打开。",
-      actionLabel: "前往设置",
-      action: () => onNavigate("settings"),
-    });
-  }
-
-  return items.slice(0, 4);
 }
 
 export default DashboardPage;

@@ -56,7 +56,7 @@ function AiToolsPage({
           <div>
             <h2>AI 工具</h2>
             <p>
-              Claude Code · Codex CLI · OpenCode · ccSwitch 的检测、安装、更新与取消逻辑全部保留。
+              Claude Code / Codex CLI / OpenCode / ccSwitch 的检测、安装、更新与取消逻辑全部保留。
             </p>
           </div>
           <div className="action-group">
@@ -83,7 +83,7 @@ function AiToolsPage({
         </div>
 
         <p className="tool-inline-note">
-          每个工具单独安装，单独取消。安装最新版只对支持 npm -g 的工具开放。
+          每个工具单独安装、单独取消。安装最新版只对支持 npm -g 的工具开放。
         </p>
 
         <ToolTable
