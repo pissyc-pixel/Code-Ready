@@ -24,4 +24,13 @@ dist-ssr
 *.sw?
 
 # Tauri build artifacts
+target/
 src-tauri/target/
+
+# Env files
+.env
+.env.local
+
+# Design / input materials
+design/
+ai_coding_环境助手_prd*.md
