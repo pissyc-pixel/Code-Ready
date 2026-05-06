@@ -101,3 +101,7 @@ The following features are explicitly out of scope for V1.0:
 - No automatic PATH modification (PATH repair instructions are provided as copy-paste commands only)
 - No global `npm config set registry` modification (registry is passed as a single `--registry=` flag per install command)
 - No `netsh winhttp set proxy` or system proxy takeover
+
+## V1.0 Clean Machine Validation
+
+See [`docs/v1-clean-machine-validation.md`](docs/v1-clean-machine-validation.md) for V1.0 clean-machine validation status and manual validation checklist.

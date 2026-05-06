@@ -3416,3 +3416,49 @@ Success.
 - Faked signing status: no
 - Committed PRD input file: no
 - Committed `.claude/`: no
+
+# V1.0 Clean Machine Validation Record
+
+## Time
+
+2026-05-06 (Asia/Shanghai)
+
+## Baseline
+
+- Latest commit: `2589160 chore: ignore tauri build artifacts`
+- Build command: `npm run tauri build`
+- Build result: Success
+- Artifacts:
+  - NSIS: `src-tauri/target/release/bundle/nsis/tauri-app_0.1.0_x64-setup.exe`
+  - MSI: `src-tauri/target/release/bundle/msi/tauri-app_0.1.0_x64_en-US.msi`
+  - EXE: `src-tauri/target/release/tauri-app.exe`
+- Signing: Unsigned test build
+
+## Local validation completed
+
+| Command | Result |
+|---------|--------|
+| `npx vitest run src/App.test.tsx --reporter=verbose` | 14 tests passed |
+| `npm run build` | Passed |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | Passed |
+| `cargo test --manifest-path src-tauri/Cargo.toml` | 87 tests passed |
+| `npm run tauri build` | Success |
+
+## Clean machine validation
+
+- Status: **Pending manual validation**
+- All 6 scenarios documented in `docs/v1-clean-machine-validation.md` are awaiting real-machine testing.
+- No clean machine has been tested. Do not claim pass.
+
+## Changes in this commit
+
+- Created `docs/v1-clean-machine-validation.md` with validation matrix, manual steps, and known limitations.
+- Added link to README.
+
+## PUA Self-Check
+
+- Skipped validation: no
+- Faked clean machine result: no
+- Committed PRD input file: no
+- Committed `.claude/`: no
+- Committed `src-tauri/target/`: no
