@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import AppShell from "./components/shell/AppShell";
+import SideNav, { type SideNavItem } from "./components/shell/SideNav";
+import TopBar from "./components/shell/TopBar";
 import { mockAiTools, mockBaseTools } from "./data/mockTools";
 import { useDetectEvents } from "./hooks/useDetectEvents";
 import { useInstallEvents } from "./hooks/useInstallEvents";
@@ -22,8 +25,8 @@ import {
   updateConfig,
 } from "./lib/api";
 import { statusMeta } from "./lib/toolStatus";
-import type { AppConfig } from "./types/config";
-import { defaultAppConfig } from "./types/config";
+import DashboardPage from "./pages/DashboardPage";
+import { defaultAppConfig, type AppConfig } from "./types/config";
 import type {
   InstallStatusEvent,
   InstallTaskViewState,
@@ -43,10 +46,55 @@ const INSTALLABLE_TOOL_IDS: ToolId[] = [
 const LATEST_INSTALLABLE_TOOL_IDS: ToolId[] = ["claude", "codex", "opencode"];
 const LOG_VIEWER_LINE_LIMIT = 5000;
 
+type AppViewId =
+  | "dashboard"
+  | "environment"
+  | "aiTools"
+  | "ccswitch"
+  | "logs"
+  | "settings";
+
+const APP_NAV_ITEMS: SideNavItem[] = [
+  { id: "dashboard", label: "总览", caption: "Dashboard" },
+  { id: "environment", label: "基础环境", caption: "Git · Node · Python" },
+  { id: "aiTools", label: "AI 工具", caption: "Claude · Codex · OpenCode" },
+  { id: "ccswitch", label: "ccSwitch", caption: "路径与启动" },
+  { id: "logs", label: "日志", caption: "Logs" },
+  { id: "settings", label: "设置", caption: "Settings" },
+];
+
+const VIEW_META: Record<AppViewId, { title: string; description: string }> = {
+  dashboard: {
+    title: "Dashboard",
+    description: "保留真实逻辑，只先迁移 App Shell 与首页总览。",
+  },
+  environment: {
+    title: "基础环境",
+    description: "保留原有检测、安装、PATH 修复与重新检测动作。",
+  },
+  aiTools: {
+    title: "AI 工具",
+    description: "保留 Claude / Codex / OpenCode / ccSwitch 的真实安装与检测逻辑。",
+  },
+  ccswitch: {
+    title: "ccSwitch",
+    description: "路径保存、启动入口和订阅页 URL 仍走现有状态与 invoke 调用。",
+  },
+  logs: {
+    title: "日志与诊断",
+    description: "实时日志、完整日志目录和诊断压缩包继续沿用原有数据链路。",
+  },
+  settings: {
+    title: "设置",
+    description: "安装网络与权限信息保留在现有配置逻辑中。",
+  },
+};
+
 function App() {
   const [rows, setRows] = useState<ToolStatus[]>(() =>
     initialRows.map((tool) => ({ ...tool, status: "checking" })),
   );
+  const [activeView, setActiveView] = useState<AppViewId>("dashboard");
   const [isDetectingAll, setIsDetectingAll] = useState(false);
   const [installState, setInstallState] = useState<InstallTaskViewState>({
     isInstalling: false,
@@ -94,6 +142,7 @@ function App() {
     [rows],
   );
   const ccswitchRow = rows.find((row) => row.id === "ccswitch");
+  const activeInstallRow = rows.find((row) => row.id === installState.activeToolId);
 
   function applyResult(result: ToolStatus) {
     setRows((currentRows) =>
@@ -351,13 +400,6 @@ function App() {
     }
   }
 
-  function scrollToPanel(id: string) {
-    const target = document.getElementById(id);
-    if (typeof target?.scrollIntoView === "function") {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
-
   async function copyPathRepairCommand(command: string) {
     try {
       await navigator.clipboard.writeText(command);
@@ -377,90 +419,25 @@ function App() {
     setPathRepairCopyState("idle");
   }
 
-  return (
-    <main className="app-shell">
-      <header className="hero">
-        <div>
-          <p className="eyebrow">Windows First - V0.5 Subscription Entry</p>
-          <h1>AI Coding 环境助手</h1>
-          <p className="hero-copy">
-            当前阶段补上订阅入口、快捷操作和配置保存，不处理节点解析、代理或 Provider。
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void runDetectAll()}
-          disabled={isDetectingAll}
-        >
-          {isDetectingAll ? "检测中..." : "刷新检测"}
-        </button>
-      </header>
+  const currentViewMeta = VIEW_META[activeView];
+  const npmRegistryLabel =
+    config.installNetwork.npmRegistry === "custom"
+      ? config.installNetwork.customNpmRegistry ?? "custom"
+      : config.installNetwork.npmRegistry;
 
-      {!adminState.isAdmin && adminState.checked ? (
-        <section className="panel">
-          <div className="panel-header">
-            <h2>权限提示</h2>
-            <p>当前不是管理员，安装时可能触发 UAC。</p>
-          </div>
-          <div className="quick-actions">
-            <button type="button" onClick={() => void runRestartAsAdmin()}>
-              以管理员身份重启
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="panel">
+  function renderEnvironmentPage() {
+    return (
+      <section className="page-section panel" role="region" aria-label="基础环境">
         <div className="panel-header">
-          <h2>Quick Actions</h2>
-          <p>Common entries only open or jump; they do not save API keys, edit Provider, or take over proxy.</p>
-        </div>
-        <div className="quick-actions">
-          <button
-            type="button"
-            onClick={() => void runDetectAll()}
-            disabled={isDetectingAll}
-          >
+          <div>
+            <h2>基础环境</h2>
+            <p>
+              Git / Node / npm / Python 是 AI Coding CLI 的前置依赖。每项独立检测、独立安装。
+            </p>
+          </div>
+          <button type="button" onClick={() => void runDetectAll()} disabled={isDetectingAll}>
             {isDetectingAll ? "检测中..." : "重新检测全部"}
           </button>
-          <button
-            type="button"
-            onClick={() => void runOpenCcSwitch()}
-            disabled={!ccswitchRow?.executablePath}
-            title={
-              ccswitchRow?.executablePath
-                ? ccswitchRow.executablePath
-                : "请先安装或指定 ccSwitch 路径"
-            }
-          >
-            打开 ccSwitch
-          </button>
-          <button
-            type="button"
-            onClick={() => void runOpenSubscriptionPage()}
-            disabled={!config.subscriptionPageUrl}
-            title={
-              config.subscriptionPageUrl
-                ? config.subscriptionPageUrl
-                : "请先配置节点订阅网页"
-            }
-          >
-            打开节点订阅网页
-          </button>
-          <button type="button" onClick={() => scrollToPanel("install-network-settings")}>
-            打开安装网络设置
-          </button>
-          <button type="button" onClick={() => scrollToPanel("logs-panel")}>
-            查看日志
-          </button>
-        </div>
-        {quickActionMessage ? <p className="row-message">{quickActionMessage}</p> : null}
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>基础环境</h2>
-          <p>这一步保留基础依赖检测和安装入口，具体操作仍按单个工具执行。</p>
         </div>
         <ToolTable
           rows={groupedRows.base}
@@ -473,11 +450,22 @@ function App() {
           installState={installState}
         />
       </section>
+    );
+  }
 
-      <section className="panel">
+  function renderAiToolsPage() {
+    return (
+      <section className="page-section panel" role="region" aria-label="AI 工具">
         <div className="panel-header">
-          <h2>AI Coding 工具</h2>
-          <p>Claude / Codex / OpenCode / ccSwitch 分别保留检测、安装和启动入口。</p>
+          <div>
+            <h2>AI 工具</h2>
+            <p>
+              Claude / Codex / OpenCode / ccSwitch 的检测、安装、更新与取消逻辑全部保留。
+            </p>
+          </div>
+          <button type="button" onClick={() => void runDetectAll()} disabled={isDetectingAll}>
+            {isDetectingAll ? "检测中..." : "重新检测全部"}
+          </button>
         </div>
         <ToolTable
           rows={groupedRows.ai}
@@ -490,114 +478,104 @@ function App() {
           installState={installState}
         />
       </section>
+    );
+  }
 
-      <section className="panel split-panel">
-        <div className="panel-header">
-          <h2>ccSwitch Path</h2>
-          <p>
-            Save a manual ccSwitch executable path, then re-detect or open it.
-            Detection still only probes paths and never launches the GUI.
-          </p>
-        </div>
-        <div className="network-card">
-          <label className="network-stat" htmlFor="ccswitch-path-input">
-            <span>ccSwitch executable</span>
-            <input
-              id="ccswitch-path-input"
-              type="text"
-              value={ccswitchPathInput}
-              onChange={(event) => setCcswitchPathInput(event.target.value)}
-              placeholder="C:\\Program Files\\ccswitch\\ccswitch.exe"
-            />
-          </label>
-          <div className="action-group">
-            <button type="button" onClick={() => void saveCcSwitchPath()}>
-              Save ccSwitch path
-            </button>
-            <button
-              type="button"
-              onClick={() => void runOpenCcSwitch()}
-              disabled={!ccswitchRow?.executablePath}
-              title={
-                ccswitchRow?.executablePath
-                  ? ccswitchRow.executablePath
-                : "请先安装或指定 ccSwitch 路径"
-              }
-            >
+  function renderCcSwitchPage() {
+    return (
+      <div className="page-stack">
+        <section className="page-section panel" role="region" aria-label="ccSwitch">
+          <div className="panel-header">
+            <div>
+              <h2>ccSwitch Path</h2>
+              <p>
+                Save a manual ccSwitch executable path, then re-detect or open it. Detection still
+                only probes paths and never launches the GUI.
+              </p>
+            </div>
+            <button type="button" onClick={() => void runOpenCcSwitch()} disabled={!ccswitchRow?.executablePath}>
               Open ccSwitch
             </button>
-            <button type="button" onClick={() => void runDetectOne("ccswitch")}>
-              Re-detect ccSwitch
-            </button>
           </div>
-          <p className="tool-detail">
-            Configured download sources: {config.ccswitchDownloadSources.length}. If all sources
-            fail or no source is configured, save a manual ccSwitch path instead.
-          </p>
-        </div>
-      </section>
+          <div className="network-card single-column">
+            <label className="network-stat" htmlFor="ccswitch-path-input">
+              <span>ccSwitch executable</span>
+              <input
+                id="ccswitch-path-input"
+                type="text"
+                value={ccswitchPathInput}
+                onChange={(event) => setCcswitchPathInput(event.target.value)}
+                placeholder="C:\\Program Files\\ccswitch\\ccswitch.exe"
+              />
+            </label>
+            <div className="action-group">
+              <button type="button" onClick={() => void saveCcSwitchPath()}>
+                Save ccSwitch path
+              </button>
+              <button type="button" onClick={() => void runDetectOne("ccswitch")}>
+                Re-detect ccSwitch
+              </button>
+            </div>
+            <p className="tool-detail">
+              Configured download sources: {config.ccswitchDownloadSources.length}. If all sources
+              fail or no source is configured, save a manual ccSwitch path instead.
+            </p>
+          </div>
+        </section>
 
-      <section className="panel split-panel">
-        <div className="panel-header">
-          <h2>节点订阅网页</h2>
-          <p>这里只保存和打开网页入口，不解析订阅、不下载节点、不设置代理。</p>
-        </div>
-        <div className="network-card">
-          <label className="network-stat" htmlFor="subscription-page-url-input">
-            <span>节点订阅网页</span>
-            <input
-              id="subscription-page-url-input"
-              type="url"
-              value={subscriptionPageUrlInput}
-              onChange={(event) => setSubscriptionPageUrlInput(event.target.value)}
-              placeholder="https://example.com/dashboard"
-            />
-          </label>
-          <div className="action-group">
-            <button type="button" onClick={() => void saveSubscriptionPageUrl()}>
-              保存订阅网页
-            </button>
-            <button type="button" onClick={() => void runOpenSubscriptionPage()}>
-              打开订阅网页
+        <section className="page-section panel" role="region" aria-label="节点订阅网页">
+          <div className="panel-header">
+            <div>
+              <h2>节点订阅网页</h2>
+              <p>这里只保存和打开网页入口，不解析订阅、不下载节点、不设置代理。</p>
+            </div>
+            <button type="button" onClick={() => void runOpenSubscriptionPage()} disabled={!config.subscriptionPageUrl}>
+              打开订阅页
             </button>
           </div>
-          <p className="tool-detail">
-            留空表示不配置；打开时后端会校验必须是 http:// 或 https:// URL。
-          </p>
-        </div>
-      </section>
+          <div className="network-card single-column">
+            <label className="network-stat" htmlFor="subscription-page-url-input">
+              <span>节点订阅网页</span>
+              <input
+                id="subscription-page-url-input"
+                type="url"
+                value={subscriptionPageUrlInput}
+                onChange={(event) => setSubscriptionPageUrlInput(event.target.value)}
+                placeholder="https://example.com/dashboard"
+              />
+            </label>
+            <div className="action-group">
+              <button type="button" onClick={() => void saveSubscriptionPageUrl()}>
+                保存订阅网页
+              </button>
+              <button type="button" onClick={() => void runOpenSubscriptionPage()} disabled={!config.subscriptionPageUrl}>
+                打开订阅网页
+              </button>
+            </div>
+            <p className="tool-detail">
+              留空表示不配置；打开时后端会校验必须是 http:// 或 https:// URL。
+            </p>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
-      <section className="panel split-panel" id="install-network-settings">
+  function renderLogsPage() {
+    return (
+      <section className="page-section panel" role="region" aria-label="日志">
         <div className="panel-header">
-          <h2>安装网络</h2>
-          <p>配置会写入 AppConfig；npm 镜像只通过本客户端发起的安装命令使用。</p>
-        </div>
-        <div className="network-card">
-          <div className="network-stat">
-            <span>当前模式</span>
-            <strong>{config.installNetwork.mode}</strong>
+          <div>
+            <h2>Logs</h2>
+            <p>Recent install output is capped to the latest 5000 lines in this viewer.</p>
           </div>
-          <div className="network-stat">
-            <span>npm registry</span>
-            <strong>
-              {config.installNetwork.npmRegistry === "custom"
-                ? config.installNetwork.customNpmRegistry ?? "custom"
-                : config.installNetwork.npmRegistry}
-            </strong>
-          </div>
-          <p className="network-warning">
-            注意：winget 不保证读取本客户端的临时代理设置。
-          </p>
-          <button type="button" onClick={() => scrollToPanel("install-network-settings")}>
-            当前安装网络设置
+          <button
+            type="button"
+            onClick={() => void runExportDiagnosticsLogZip()}
+            disabled={isExportingDiagnostics}
+          >
+            {isExportingDiagnostics ? "Exporting diagnostics zip..." : "Export diagnostics zip"}
           </button>
-        </div>
-      </section>
-
-      <section className="panel" id="logs-panel">
-        <div className="panel-header">
-          <h2>Logs</h2>
-          <p>Recent install output is capped to the latest 5000 lines in this viewer.</p>
         </div>
         <div className="log-toolbar">
           <div className="log-count">
@@ -609,15 +587,6 @@ function App() {
             </button>
             <button type="button" onClick={() => void runOpenLogDirectory()}>
               Open log directory
-            </button>
-            <button
-              type="button"
-              onClick={() => void runExportDiagnosticsLogZip()}
-              disabled={isExportingDiagnostics}
-            >
-              {isExportingDiagnostics
-                ? "Exporting diagnostics zip..."
-                : "Export diagnostics zip"}
             </button>
           </div>
         </div>
@@ -634,6 +603,111 @@ function App() {
           )}
         </div>
       </section>
+    );
+  }
+
+  function renderSettingsPage() {
+    return (
+      <div className="page-stack">
+        {!adminState.isAdmin && adminState.checked ? (
+          <section className="page-section panel warning-panel" role="region" aria-label="管理员权限">
+            <div className="panel-header">
+              <div>
+                <h2>当前为标准用户运行</h2>
+                <p>安装某些工具时会弹出 Windows UAC。也可以现在直接以管理员身份重启本应用。</p>
+              </div>
+              <button type="button" onClick={() => void runRestartAsAdmin()}>
+                以管理员身份重启
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className="page-section panel" role="region" aria-label="设置">
+          <div className="panel-header">
+            <div>
+              <h2>安装网络</h2>
+              <p>只影响本客户端发起的安装命令。winget 不保证读取这里的代理设置。</p>
+            </div>
+          </div>
+          <div className="network-card">
+            <div className="network-stat">
+              <span>当前模式</span>
+              <strong>{config.installNetwork.mode}</strong>
+            </div>
+            <div className="network-stat">
+              <span>npm registry</span>
+              <strong>{npmRegistryLabel}</strong>
+            </div>
+            <p className="network-warning">本轮未迁移完整设置表单，先保留真实配置读取结果。</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  function renderCurrentPage() {
+    switch (activeView) {
+      case "dashboard":
+        return (
+          <DashboardPage
+            rows={rows}
+            groupedRows={groupedRows}
+            config={config}
+            installState={installState}
+            logLines={logLines}
+            adminChecked={adminState.checked}
+            isAdmin={adminState.isAdmin}
+            quickActionMessage={quickActionMessage}
+            logActionMessage={logActionMessage}
+            canOpenCcSwitch={Boolean(ccswitchRow?.executablePath)}
+            onDetectAll={runDetectAll}
+            onDetect={runDetectOne}
+            onInstall={runInstall}
+            onReinstall={runReinstall}
+            onOpenCcSwitch={runOpenCcSwitch}
+            onOpenSubscriptionPage={runOpenSubscriptionPage}
+            onExportDiagnostics={runExportDiagnosticsLogZip}
+            onNavigate={(pageId) => setActiveView(pageId as AppViewId)}
+          />
+        );
+      case "environment":
+        return renderEnvironmentPage();
+      case "aiTools":
+        return renderAiToolsPage();
+      case "ccswitch":
+        return renderCcSwitchPage();
+      case "logs":
+        return renderLogsPage();
+      case "settings":
+        return renderSettingsPage();
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <>
+      <AppShell
+        sidebar={
+          <SideNav
+            items={APP_NAV_ITEMS}
+            activeItemId={activeView}
+            onSelect={(id) => setActiveView(id as AppViewId)}
+          />
+        }
+        topbar={
+          <TopBar
+            title={currentViewMeta.title}
+            description={currentViewMeta.description}
+            npmRegistryLabel={npmRegistryLabel}
+            isAdmin={adminState.isAdmin}
+            activeInstallLabel={activeInstallRow?.name}
+          />
+        }
+      >
+        {renderCurrentPage()}
+      </AppShell>
 
       {pathRepairTool?.executablePath ? (
         <PathRepairModal
@@ -645,7 +719,7 @@ function App() {
           onClose={closePathRepair}
         />
       ) : null}
-    </main>
+    </>
   );
 }
 
@@ -692,22 +766,17 @@ function ToolTable({
               canInstall &&
               row.status !== "missing" &&
               row.status !== "checking" &&
-              !(
-                installState.isInstalling && installState.activeToolId === row.id
-              );
+              !(installState.isInstalling && installState.activeToolId === row.id);
             const showInstallLatestButton =
               canInstallLatest &&
               row.status !== "checking" &&
-              !(
-                installState.isInstalling && installState.activeToolId === row.id
-              );
+              !(installState.isInstalling && installState.activeToolId === row.id);
             const showCancelButton =
               installState.isInstalling && installState.activeToolId === row.id;
             const showPathRepairButton =
               row.status === "installed_but_path_missing" && Boolean(row.executablePath);
             const disableInstallButton =
-              installState.isInstalling &&
-              installState.activeToolId !== row.id;
+              installState.isInstalling && installState.activeToolId !== row.id;
 
             return (
               <tr key={row.id}>
