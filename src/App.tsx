@@ -50,17 +50,17 @@ type AppViewId =
   | "settings";
 
 const APP_NAV_ITEMS: SideNavItem[] = [
-  { id: "dashboard", label: "总览", caption: "Dashboard" },
+  { id: "dashboard", label: "总览", caption: "环境概览" },
   { id: "environment", label: "基础环境", caption: "Git · Node · Python" },
   { id: "aiTools", label: "AI 工具", caption: "Claude · Codex · OpenCode" },
   { id: "ccswitch", label: "ccSwitch", caption: "路径与启动" },
-  { id: "logs", label: "日志", caption: "Logs" },
-  { id: "settings", label: "设置", caption: "Settings" },
+  { id: "logs", label: "日志", caption: "诊断与导出" },
+  { id: "settings", label: "设置", caption: "网络与权限" },
 ];
 
 const VIEW_META: Record<AppViewId, { title: string; description: string }> = {
   dashboard: {
-    title: "Dashboard",
+    title: "总览",
     description: "保留真实逻辑，只迁移壳层和首页信息分发。",
   },
   environment: {
@@ -222,7 +222,7 @@ function App() {
       setLogActionMessage("");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setLogActionMessage(`Log preview unavailable: ${message}`);
+      setLogActionMessage(`日志预览暂时不可用：${message}`);
     }
   }
 
@@ -378,32 +378,32 @@ function App() {
   async function runOpenFullLogFile() {
     try {
       await openFullLogFile();
-      setLogActionMessage("Full log file opened.");
+      setLogActionMessage("已打开完整日志文件。");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setLogActionMessage(`Unable to open full log file: ${message}`);
+      setLogActionMessage(`打开完整日志文件失败：${message}`);
     }
   }
 
   async function runOpenLogDirectory() {
     try {
       await openLogDirectory();
-      setLogActionMessage("Log directory opened.");
+      setLogActionMessage("已打开日志目录。");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setLogActionMessage(`Unable to open log directory: ${message}`);
+      setLogActionMessage(`打开日志目录失败：${message}`);
     }
   }
 
   async function runExportDiagnosticsLogZip() {
     setIsExportingDiagnostics(true);
-    setLogActionMessage("Exporting diagnostics zip...");
+    setLogActionMessage("正在导出诊断 zip...");
     try {
       const result = await exportDiagnosticsLogZip();
-      setLogActionMessage(`Diagnostics zip exported: ${result.path}`);
+      setLogActionMessage(`诊断 zip 已导出：${result.path}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setLogActionMessage(`Unable to export diagnostics zip: ${message}`);
+      setLogActionMessage(`导出诊断 zip 失败：${message}`);
     } finally {
       setIsExportingDiagnostics(false);
     }

@@ -231,7 +231,7 @@ function AiToolsPage({
               <strong>npm install -g &lt;package&gt;</strong>
             </div>
             <div className="tool-info-item">
-              <span>使用 registry</span>
+              <span>使用 npm 源</span>
               <strong>{npmRegistryLabel}</strong>
             </div>
             <div className="tool-info-item">

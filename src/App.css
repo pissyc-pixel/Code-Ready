@@ -208,6 +208,7 @@ ol {
   margin-top: 4px;
   color: var(--text-secondary);
   font-size: 0.84rem;
+  overflow-wrap: anywhere;
 }
 
 .top-bar {
@@ -234,6 +235,7 @@ ol {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: flex-start;
   gap: 10px;
 }
 
@@ -247,6 +249,8 @@ ol {
   color: var(--text-secondary);
   font-size: 0.88rem;
   font-weight: 600;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .top-bar-pill.is-success {
@@ -269,6 +273,7 @@ ol {
 
 .app-content {
   padding: 0 32px 32px;
+  min-width: 0;
 }
 
 .page-stack {
@@ -618,6 +623,12 @@ ol {
   align-items: start;
 }
 
+.tool-page-layout > *,
+.dashboard-grid > *,
+.dashboard-summary-grid > * {
+  min-width: 0;
+}
+
 .tool-page-sidebar {
   display: flex;
   flex-direction: column;
@@ -850,10 +861,12 @@ ol {
 
 .table-wrap {
   overflow-x: auto;
+  scrollbar-gutter: stable both-edges;
 }
 
 table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
 }
 
@@ -886,6 +899,7 @@ th {
 .tool-subtitle {
   color: var(--text-secondary);
   font-size: 0.88rem;
+  overflow-wrap: anywhere;
 }
 
 .status-badge {
@@ -944,6 +958,12 @@ th {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.tool-info-item strong,
+.network-stat strong,
+.log-count {
+  overflow-wrap: anywhere;
 }
 
 .ghost-button {
@@ -1013,6 +1033,7 @@ th {
   justify-content: space-between;
   gap: 16px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .log-filter-hint {
@@ -1024,6 +1045,7 @@ th {
   color: #33408f;
   font-size: 0.84rem;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .log-count {
@@ -1176,6 +1198,10 @@ th {
   .card-actions,
   .alert-banner-actions {
     margin-top: 16px;
+  }
+
+  .top-bar-meta {
+    justify-content: flex-start;
   }
 
   .action-list-item button,

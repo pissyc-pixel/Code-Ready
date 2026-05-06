@@ -95,7 +95,7 @@ function DashboardPage({
     <div className="dashboard-layout">
       <Card
         className="dashboard-hero"
-        eyebrow="Dashboard"
+        eyebrow="总览"
         title="一眼看懂当前环境状态，按优先级给出下一步动作。"
         description="不会自动执行安装；所有按钮仍然连接到现有检测、安装、日志与配置逻辑。"
         actions={
@@ -123,7 +123,7 @@ function DashboardPage({
               基础环境 {groupedRows.base.length} 项 · AI 工具 {groupedRows.ai.length} 项
             </strong>
             <p>
-              安装网络模式为 <code>{config.installNetwork.mode}</code>，npm registry 当前为{" "}
+              安装网络模式为 <code>{config.installNetwork.mode}</code>，当前 npm 源为{" "}
               <code>{npmRegistryLabel}</code>。
             </p>
           </div>

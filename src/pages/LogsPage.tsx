@@ -24,7 +24,7 @@ function LogsPage({
   onExportDiagnostics,
 }: LogsPageProps) {
   const actionTone =
-    logActionMessage.startsWith("Unable") || logActionMessage.startsWith("Log preview unavailable")
+    logActionMessage.includes("失败") || logActionMessage.includes("不可用")
       ? "warning"
       : "info";
 
@@ -53,7 +53,7 @@ function LogsPage({
               <strong>日志</strong>
               <span className="log-count">显示最近 {logLines.length} / {logViewerLineLimit} 行</span>
             </div>
-            <div className="log-filter-hint">筛选 (level, source)</div>
+            <div className="log-filter-hint">按级别与来源自动着色</div>
             <div className="action-group">
               <button type="button" className="ghost-button" onClick={() => void onRefreshPreview()}>
                 刷新预览

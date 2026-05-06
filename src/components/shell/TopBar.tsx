@@ -22,7 +22,7 @@ function TopBar({
       </div>
 
       <div className="top-bar-meta">
-        <span className="top-bar-pill">npm registry · {npmRegistryLabel}</span>
+        <span className="top-bar-pill">npm 源 · {npmRegistryLabel}</span>
         <span className={`top-bar-pill ${isAdmin ? "is-success" : "is-warning"}`}>
           {isAdmin ? "管理员" : "标准用户"}
         </span>

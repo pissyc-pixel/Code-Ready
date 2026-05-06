@@ -204,7 +204,7 @@ describe("App UI migration", () => {
     });
 
     expect(
-      screen.getByText("Diagnostics zip exported: C:\\logs\\diagnostics.zip"),
+      screen.getByText("诊断 zip 已导出：C:\\logs\\diagnostics.zip"),
     ).toBeInTheDocument();
   });
 
@@ -261,8 +261,8 @@ describe("App UI migration", () => {
     expect(
       screen.getByText(/Git \/ Node \/ npm \/ Python 是 AI Coding CLI 的前置依赖/),
     ).toBeInTheDocument();
-    expect(screen.getByText("Source control")).toBeInTheDocument();
-    expect(screen.getByText("Package manager")).toBeInTheDocument();
+    expect(screen.getByText("版本管理")).toBeInTheDocument();
+    expect(screen.getByText("包管理器")).toBeInTheDocument();
     expect(screen.getByText("检测说明")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "查看 PATH 修复说明" })[0]);
@@ -423,10 +423,10 @@ describe("App UI migration", () => {
     fireEvent.change(await screen.findByLabelText("代理 URL"), {
       target: { value: "http://127.0.0.1:7890" },
     });
-    fireEvent.change(screen.getByLabelText("npm Registry"), {
+    fireEvent.change(screen.getByLabelText("npm 源"), {
       target: { value: "custom" },
     });
-    fireEvent.change(screen.getByLabelText("自定义 registry URL"), {
+    fireEvent.change(screen.getByLabelText("自定义源 URL"), {
       target: { value: "https://registry.example.com/" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存设置" }));
@@ -465,7 +465,7 @@ describe("App UI migration", () => {
 
     const logsRegion = await screen.findByRole("region", { name: "日志" });
     expect(within(logsRegion).getByRole("heading", { name: "日志" })).toBeInTheDocument();
-    expect(screen.getByText("筛选 (level, source)")).toBeInTheDocument();
+    expect(screen.getByText("按级别与来源自动着色")).toBeInTheDocument();
     expect(screen.getByText("诊断 zip 包含什么")).toBeInTheDocument();
     expect(screen.getByText("detect.log")).toBeInTheDocument();
 

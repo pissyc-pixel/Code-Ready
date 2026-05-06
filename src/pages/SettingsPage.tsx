@@ -83,7 +83,7 @@ function SettingsPage({
                 <ChoiceCard
                   checked={mode === "none"}
                   title="不使用代理"
-                  description="直连 npm registry / winget"
+                  description="直连 npm 源 / winget"
                   onSelect={() => setMode("none")}
                 />
                 <ChoiceCard
@@ -115,7 +115,7 @@ function SettingsPage({
             ) : null}
 
             <label className="form-field" htmlFor="npm-registry-select">
-              <span>npm Registry</span>
+              <span>npm 源</span>
               <select
                 id="npm-registry-select"
                 value={npmRegistry}
@@ -129,7 +129,7 @@ function SettingsPage({
 
             {npmRegistry === "custom" ? (
               <label className="form-field" htmlFor="custom-registry-input">
-                <span>自定义 registry URL</span>
+                <span>自定义源 URL</span>
                 <input
                   id="custom-registry-input"
                   type="url"

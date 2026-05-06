@@ -6,11 +6,11 @@ import type { InstallTaskViewState } from "../types/install";
 import type { ToolId, ToolStatus } from "../types/tool";
 
 const ENV_TOOL_SUBTITLES: Partial<Record<ToolId, string>> = {
-  winget: "Windows package manager",
-  git: "Source control",
-  node: "JavaScript runtime",
-  npm: "Package manager",
-  python: "Runtime",
+  winget: "Windows 包管理器",
+  git: "版本管理",
+  node: "JavaScript 运行时",
+  npm: "包管理器",
+  python: "Python 运行时",
 };
 
 type EnvPageProps = {
