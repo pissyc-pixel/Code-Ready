@@ -3462,3 +3462,79 @@ Success.
 - Committed PRD input file: no
 - Committed `.claude/`: no
 - Committed `src-tauri/target/`: no
+
+# V1.0 Internal Test Release
+
+## Time
+
+2026-05-06 (Asia/Shanghai)
+
+## Commit
+
+- Base commit: `bf119ad test: record v1 clean machine validation`
+
+## Status
+
+- Internal test build.
+- Not externally released.
+
+## Local validation
+
+- Frontend tests: passed
+- Frontend build: passed
+- cargo check: passed
+- cargo test: passed
+- Tauri build: passed
+
+## Artifacts
+
+- NSIS installer:
+- MSI installer:
+- Standalone exe:
+
+## Signing
+
+- Unsigned test build.
+- No signing certificate configured.
+
+## Clean machine validation
+
+- Pending manual validation.
+
+## Scope
+
+Implemented:
+
+- Environment detection
+- Git / Node / Python installation
+- Claude Code / Codex / OpenCode installation
+- ccSwitch shallow integration
+- Log viewer and diagnostics export
+- PATH repair instructions
+- Subscription page entry
+- Windows packaging validation
+
+Not implemented:
+
+- API Key storage
+- Provider writing
+- ccSwitch DB writes
+- Node client
+- System proxy takeover
+- One-click install all
+- Automatic outdated detection
+
+## Known limitations
+
+- winget does not reliably use app-level temporary proxy
+- ccSwitch download source defaults to empty
+- ccSwitch V1.0 only supports DirectExe download source
+- Clean-machine validation must be completed manually
+
+## Release note commit intent
+
+- Commit only `docs/releases/v1.0-internal-test.md` and `docs/dev-log.md`.
+- Do not commit PRD input files.
+- Do not commit `.claude/`.
+- Do not commit `src-tauri/target/`.
+- Tag should point to the release-notes commit, not `bf119ad`.
