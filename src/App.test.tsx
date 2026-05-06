@@ -265,8 +265,8 @@ describe("App UI migration", () => {
     expect(screen.getByText("Package manager")).toBeInTheDocument();
     expect(screen.getByText("检测说明")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "查看 PATH 修复说明" }));
-    await screen.findByRole("dialog", { name: "PATH repair instructions" });
+    fireEvent.click(screen.getAllByRole("button", { name: "查看 PATH 修复说明" })[0]);
+    await screen.findByRole("dialog", { name: "可执行文件存在，但终端 PATH 没刷新" });
 
     const gitRow = screen.getByText("Git / Git Bash").closest("tr");
     expect(gitRow).not.toBeNull();
@@ -479,6 +479,115 @@ describe("App UI migration", () => {
       expect(openFullLogFileMock).toHaveBeenCalledTimes(1);
       expect(openLogDirectoryMock).toHaveBeenCalledTimes(1);
       expect(exportDiagnosticsLogZipMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("surfaces path, detect, and install failure states with real actions", async () => {
+    detectAllToolsMock.mockResolvedValue([
+      makeTool({
+        id: "npm",
+        name: "npm",
+        category: "base",
+        status: "installed_but_path_missing",
+        version: "11.3.0",
+        executablePath: "%APPDATA%\\npm\\npm.cmd",
+      }),
+      makeTool({
+        id: "python",
+        name: "Python 3.11",
+        category: "base",
+        status: "detect_failed",
+        version: undefined,
+        executablePath: undefined,
+        errorMessage: "检测命令超时（5s）。可能受网络或杀毒软件影响。",
+      }),
+      makeTool({
+        id: "opencode",
+        name: "OpenCode",
+        category: "ai",
+        status: "broken",
+        version: "0.9.2",
+        executablePath: "C:\\Users\\dev\\AppData\\Roaming\\npm\\opencode.cmd",
+        errorMessage: "命令存在，但版本探测失败。建议重新安装。",
+      }),
+    ]);
+    detectToolMock.mockResolvedValue(
+      makeTool({
+        id: "python",
+        name: "Python 3.11",
+        category: "base",
+        status: "installed",
+        executablePath: "C:\\Python311\\python.exe",
+      }),
+    );
+    reinstallToolMock.mockResolvedValue(undefined);
+    openLogDirectoryMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /^基础环境/ }));
+    expect((await screen.findAllByText("PATH 缺失")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("检测失败")).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "重新检测 Python 3.11" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "打开日志目录" })[0]);
+
+    await waitFor(() => {
+      expect(detectToolMock).toHaveBeenCalledWith("python");
+      expect(openLogDirectoryMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^AI 工具/ }));
+    expect(await screen.findByText("安装失败 / 已损坏")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重新安装 OpenCode" }));
+
+    await waitFor(() => {
+      expect(reinstallToolMock).toHaveBeenCalledWith("opencode");
+    });
+  });
+
+  it("shows admin and install activity states from real runtime events", async () => {
+    isAdminMock.mockResolvedValue(false);
+    detectAllToolsMock.mockResolvedValue([
+      makeTool({
+        id: "codex",
+        name: "Codex CLI",
+        category: "ai",
+        status: "missing",
+        version: undefined,
+        executablePath: undefined,
+      }),
+    ]);
+    restartAsAdminMock.mockResolvedValue(undefined);
+    cancelInstallMock.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: /^总览/ });
+
+    await act(async () => {
+      installStatusHandler?.({
+        event: "install:status",
+        id: 2,
+        payload: {
+          toolId: "codex",
+          status: "installing",
+          phase: "running",
+          timestamp: "2026-05-06T16:31:00+08:00",
+        },
+        windowLabel: "main",
+      });
+    });
+
+    expect(await screen.findByText("当前为标准用户运行")).toBeInTheDocument();
+    expect(screen.getByText("正在安装 Codex CLI")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "取消安装" }));
+    fireEvent.click(screen.getByRole("button", { name: "以管理员身份重启" }));
+
+    await waitFor(() => {
+      expect(cancelInstallMock).toHaveBeenCalledTimes(1);
+      expect(restartAsAdminMock).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -135,6 +135,7 @@ function App() {
   );
   const ccswitchRow = rows.find((row) => row.id === "ccswitch");
   const activeInstallRow = rows.find((row) => row.id === installState.activeToolId);
+  const latestLogLine = logLines.length > 0 ? logLines[logLines.length - 1] : undefined;
   const currentViewMeta = VIEW_META[activeView];
   const npmRegistryLabel =
     config.installNetwork.npmRegistry === "custom"
@@ -433,6 +434,8 @@ function App() {
         rows={groupedRows.base}
         isDetectingAll={isDetectingAll}
         installState={installState}
+        activeInstallTool={activeInstallRow}
+        latestLogLine={latestLogLine}
         onDetectAll={runDetectAll}
         onDetect={runDetectOne}
         onInstall={runInstall}
@@ -441,6 +444,7 @@ function App() {
         onCancelInstall={runCancelInstall}
         onOpenPathRepair={openPathRepair}
         onNavigateLogs={() => setActiveView("logs")}
+        onOpenLogDirectory={runOpenLogDirectory}
       />
     );
   }
@@ -452,6 +456,8 @@ function App() {
         config={config}
         isDetectingAll={isDetectingAll}
         installState={installState}
+        activeInstallTool={activeInstallRow}
+        latestLogLine={latestLogLine}
         canOpenCcSwitch={Boolean(ccswitchRow?.executablePath)}
         onDetectAll={runDetectAll}
         onDetect={runDetectOne}
@@ -460,6 +466,8 @@ function App() {
         onInstallLatest={runInstallLatest}
         onCancelInstall={runCancelInstall}
         onOpenPathRepair={openPathRepair}
+        onOpenLogDirectory={runOpenLogDirectory}
+        onNavigateLogs={() => setActiveView("logs")}
         onOpenCcSwitch={runOpenCcSwitch}
         onOpenSubscriptionPage={runOpenSubscriptionPage}
       />
@@ -521,6 +529,8 @@ function App() {
             groupedRows={groupedRows}
             config={config}
             installState={installState}
+            activeInstallTool={activeInstallRow}
+            latestLogLine={latestLogLine}
             logLines={logLines}
             adminChecked={adminState.checked}
             isAdmin={adminState.isAdmin}
@@ -531,6 +541,8 @@ function App() {
             onDetect={runDetectOne}
             onInstall={runInstall}
             onReinstall={runReinstall}
+            onCancelInstall={runCancelInstall}
+            onRestartAsAdmin={runRestartAsAdmin}
             onOpenCcSwitch={runOpenCcSwitch}
             onOpenSubscriptionPage={runOpenSubscriptionPage}
             onExportDiagnostics={runExportDiagnosticsLogZip}
@@ -616,39 +628,39 @@ function PathRepairModal({
       >
         <div className="modal-header">
           <div>
-            <p className="eyebrow">Manual PATH Repair</p>
-            <h2 id="path-repair-title">PATH repair instructions</h2>
+            <p className="eyebrow">PATH 缺失</p>
+            <h2 id="path-repair-title">可执行文件存在，但终端 PATH 没刷新</h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>
-            Close
+            关闭
           </button>
         </div>
 
         <div className="repair-grid">
           <div className="network-stat">
-            <span>Tool</span>
+            <span>工具</span>
             <strong>{tool.name}</strong>
           </div>
           <div className="network-stat">
-            <span>Executable path</span>
+            <span>可执行文件</span>
             <strong className="mono breakable">{tool.executablePath}</strong>
           </div>
           <div className="network-stat">
-            <span>Directory to add to PATH</span>
+            <span>需要加入 PATH 的目录</span>
             <strong className="mono breakable">{directory}</strong>
           </div>
         </div>
 
         <p className="network-warning">
-          This client will not automatically modify PATH. Copy the command below and run it
-          manually in PowerShell if you want to update your user PATH.
+          本客户端不会自动修改 PATH。你可以先重启终端；如果仍然无效，再复制下面的
+          PowerShell 命令手动写入用户 PATH。
         </p>
 
         <ol className="manual-steps">
-          <li>Review the executable path and directory above.</li>
-          <li>Copy the user-level PATH command.</li>
-          <li>Run it manually in PowerShell, then restart terminals so PATH refreshes.</li>
-          <li>Come back and re-detect the tool.</li>
+          <li>选项 A：关闭并重新打开 PowerShell / Windows Terminal。</li>
+          <li>选项 B：复制下面的用户级 PATH 命令，手动在 PowerShell 中执行。</li>
+          <li>执行后请重启所有终端，让 PATH 刷新。</li>
+          <li>回到本应用，再点击“重新检测”。</li>
         </ol>
 
         <pre className="command-preview">
@@ -657,13 +669,13 @@ function PathRepairModal({
 
         <div className="action-group">
           <button type="button" onClick={() => void onCopy(command)}>
-            Copy manual PATH command
+            复制
           </button>
           {copyState === "copied" ? (
-            <span className="copy-state">Copied to clipboard.</span>
+            <span className="copy-state">已复制到剪贴板。</span>
           ) : null}
           {copyState === "failed" ? (
-            <span className="copy-state error">Clipboard copy failed.</span>
+            <span className="copy-state error">复制失败，请手动选择命令内容。</span>
           ) : null}
         </div>
       </section>

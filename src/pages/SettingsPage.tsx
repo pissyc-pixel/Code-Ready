@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import AlertBanner from "../components/ui/AlertBanner";
+import AdminStatePanel from "../components/status/AdminStatePanel";
 import Card from "../components/ui/Card";
 import type {
   AppConfig,
@@ -54,19 +54,11 @@ function SettingsPage({
   return (
     <div className="tool-page-layout">
       <div className="page-stack">
-        {!isAdmin && adminChecked ? (
-          <AlertBanner
-            tone="warning"
-            title="当前为标准用户"
-            actions={
-              <button type="button" onClick={() => void onRestartAsAdmin()}>
-                以管理员身份重启
-              </button>
-            }
-          >
-            安装某些工具时可能触发 Windows UAC。你也可以现在直接以管理员身份重启本应用。
-          </AlertBanner>
-        ) : null}
+        <AdminStatePanel
+          adminChecked={adminChecked}
+          isAdmin={isAdmin}
+          onRestartAsAdmin={onRestartAsAdmin}
+        />
 
         <section className="page-section panel" role="region" aria-label="设置">
           <div className="panel-header">

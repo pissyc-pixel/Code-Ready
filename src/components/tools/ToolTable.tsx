@@ -29,6 +29,8 @@ type ToolTableProps = {
   onInstallLatest: (toolId: ToolId) => Promise<void>;
   onCancelInstall: () => Promise<void>;
   onOpenPathRepair: (tool: ToolStatus) => void;
+  onOpenLogDirectory?: () => Promise<void>;
+  onNavigateLogs?: () => void;
 };
 
 function ToolTable({
@@ -42,6 +44,8 @@ function ToolTable({
   onInstallLatest,
   onCancelInstall,
   onOpenPathRepair,
+  onOpenLogDirectory,
+  onNavigateLogs,
 }: ToolTableProps) {
   return (
     <div className="table-wrap">
@@ -76,6 +80,11 @@ function ToolTable({
             const showPathRepairButton =
               row.status === "installed_but_path_missing" &&
               Boolean(row.executablePath);
+            const showLogButtons =
+              row.status === "installed_but_path_missing" ||
+              row.status === "detect_failed" ||
+              row.status === "install_failed" ||
+              row.status === "broken";
             const note = getRowNote?.(row);
 
             return (
@@ -89,10 +98,10 @@ function ToolTable({
                 <td>
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="mono">{row.version ?? "-"}</td>
+                <td className="mono">{row.version ?? "—"}</td>
                 <td>
-                  <div className="path-cell" title={row.executablePath ?? "-"}>
-                    {row.executablePath ?? "-"}
+                  <div className="path-cell" title={row.executablePath ?? "—"}>
+                    {row.executablePath ?? "—"}
                   </div>
                 </td>
                 <td>
@@ -131,11 +140,7 @@ function ToolTable({
                         </button>
                       ) : null}
                       {showCancelButton ? (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => void onCancelInstall()}
-                        >
+                        <button type="button" className="ghost-button" onClick={() => void onCancelInstall()}>
                           取消安装
                         </button>
                       ) : null}
@@ -148,6 +153,20 @@ function ToolTable({
                           查看 PATH 修复说明
                         </button>
                       ) : null}
+                      {showLogButtons && onNavigateLogs ? (
+                        <button type="button" className="ghost-button" onClick={onNavigateLogs}>
+                          查看日志
+                        </button>
+                      ) : null}
+                      {showLogButtons && onOpenLogDirectory ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => void onOpenLogDirectory()}
+                        >
+                          打开日志目录
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="ghost-button"
@@ -157,7 +176,7 @@ function ToolTable({
                       </button>
                     </div>
                   )}
-                  {note ? <div className="row-message">{note}</div> : null}
+                  {note ? <div className={`row-message row-message-${row.status}`}>{note}</div> : null}
                 </td>
               </tr>
             );

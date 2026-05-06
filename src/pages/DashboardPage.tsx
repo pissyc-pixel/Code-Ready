@@ -1,3 +1,5 @@
+import AdminStatePanel from "../components/status/AdminStatePanel";
+import InstallActivityPanel from "../components/status/InstallActivityPanel";
 import Card from "../components/ui/Card";
 import StatusBadge from "../components/ui/StatusBadge";
 import type { AppConfig } from "../types/config";
@@ -12,6 +14,8 @@ type DashboardPageProps = {
   };
   config: AppConfig;
   installState: InstallTaskViewState;
+  activeInstallTool?: ToolStatus;
+  latestLogLine?: string;
   logLines: string[];
   adminChecked: boolean;
   isAdmin: boolean;
@@ -22,6 +26,8 @@ type DashboardPageProps = {
   onDetect: (toolId: ToolId) => Promise<void>;
   onInstall: (toolId: ToolId) => Promise<void>;
   onReinstall: (toolId: ToolId) => Promise<void>;
+  onCancelInstall: () => Promise<void>;
+  onRestartAsAdmin: () => Promise<void>;
   onOpenCcSwitch: () => Promise<void>;
   onOpenSubscriptionPage: () => Promise<void>;
   onExportDiagnostics: () => Promise<void>;
@@ -48,6 +54,8 @@ function DashboardPage({
   groupedRows,
   config,
   installState,
+  activeInstallTool,
+  latestLogLine,
   logLines,
   adminChecked,
   isAdmin,
@@ -58,6 +66,8 @@ function DashboardPage({
   onDetect,
   onInstall,
   onReinstall,
+  onCancelInstall,
+  onRestartAsAdmin,
   onOpenCcSwitch,
   onOpenSubscriptionPage,
   onExportDiagnostics,
@@ -146,16 +156,22 @@ function DashboardPage({
         </div>
       </Card>
 
-      {!isAdmin && adminChecked ? (
-        <Card
-          className="dashboard-banner warning-card"
-          eyebrow="权限提示"
-          title="当前为标准用户运行"
-          description="标准用户也能继续检测和查看日志，但系统级安装可能触发 Windows UAC。"
-        >
-          <p className="banner-copy">你也可以切到设置页，稍后再执行管理员重启。</p>
-        </Card>
-      ) : null}
+      <div className="status-panel-stack">
+        <AdminStatePanel
+          adminChecked={adminChecked}
+          isAdmin={isAdmin}
+          onRestartAsAdmin={onRestartAsAdmin}
+        />
+
+        {installState.isInstalling && activeInstallTool ? (
+          <InstallActivityPanel
+            toolName={activeInstallTool.name}
+            latestLogLine={latestLogLine}
+            onCancelInstall={onCancelInstall}
+            onNavigateLogs={() => onNavigate("logs")}
+          />
+        ) : null}
+      </div>
 
       <div className="dashboard-grid">
         <Card
@@ -238,7 +254,6 @@ function DashboardPage({
         </Card>
 
         <Card title="安全边界" description="这些内容目前是静态说明，后续可以再按设计稿细化。">
-          {/* Placeholder text follows the PRD until the dedicated settings visual is migrated. */}
           <ul className="boundary-list">
             <li>不保存 API Key，也不读取明文。</li>
             <li>不自动写 Provider 配置。</li>
@@ -248,21 +263,6 @@ function DashboardPage({
           </ul>
         </Card>
       </div>
-
-      {installState.isInstalling ? (
-        <Card
-          className="dashboard-banner info-card"
-          eyebrow="安装中"
-          title="当前存在进行中的安装任务"
-          description="工具安装状态、取消安装和完整输出仍保留在现有逻辑中。"
-        >
-          <div className="card-footer-actions">
-            <button type="button" className="ghost-button" onClick={() => onNavigate("logs")}>
-              前往日志页
-            </button>
-          </div>
-        </Card>
-      ) : null}
     </div>
   );
 }
@@ -322,7 +322,7 @@ function buildNextActions({
 
     if (row.status === "installed_but_path_missing") {
       actions.push({
-        id: `${row.id}-logs`,
+        id: `${row.id}-path`,
         title: `处理 ${row.name} 的 PATH 缺失`,
         description: row.errorMessage ?? "工具已安装，但当前终端 PATH 尚未刷新。",
         actionLabel: "查看基础环境页",

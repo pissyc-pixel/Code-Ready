@@ -277,6 +277,12 @@ ol {
   gap: 18px;
 }
 
+.status-panel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .dashboard-layout {
   display: flex;
   flex-direction: column;
@@ -407,6 +413,19 @@ ol {
   margin-top: 10px;
   color: var(--text-secondary);
   font-size: 0.92rem;
+}
+
+.row-message-installed_but_path_missing {
+  color: #8b5d10;
+}
+
+.row-message-detect_failed {
+  color: #5b3f8c;
+}
+
+.row-message-install_failed,
+.row-message-broken {
+  color: #9b3030;
 }
 
 .dashboard-grid {
@@ -603,6 +622,94 @@ ol {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.status-panel {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 20px 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-card);
+}
+
+.status-panel.is-info {
+  border-color: rgba(63, 77, 196, 0.2);
+  background: linear-gradient(180deg, rgba(238, 241, 255, 0.92), rgba(255, 255, 255, 0.98));
+}
+
+.status-panel.is-warning {
+  border-color: rgba(183, 121, 31, 0.28);
+  background: linear-gradient(180deg, rgba(251, 241, 220, 0.94), rgba(255, 255, 255, 0.98));
+}
+
+.status-panel.is-danger {
+  border-color: rgba(196, 59, 59, 0.24);
+  background: linear-gradient(180deg, rgba(251, 233, 233, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.status-panel.is-success {
+  border-color: rgba(31, 138, 91, 0.2);
+  background: linear-gradient(180deg, rgba(230, 244, 237, 0.94), rgba(255, 255, 255, 0.98));
+}
+
+.status-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.status-panel-title {
+  margin-top: 6px;
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.status-panel-description {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.status-panel-actions,
+.status-panel-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.status-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.status-panel-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  border: 1px solid rgba(22, 24, 29, 0.08);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.status-panel-item strong {
+  display: block;
+}
+
+.status-panel-item p {
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+
+.status-panel-meta {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
 }
 
 .alert-banner {
@@ -1055,9 +1162,11 @@ th {
   .top-bar,
   .card-header,
   .panel-header,
+  .status-panel-header,
   .log-toolbar,
   .log-toolbar-head,
   .action-list-item,
+  .status-panel-item,
   .modal-header {
     display: block;
   }

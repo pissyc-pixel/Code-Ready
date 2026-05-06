@@ -1,5 +1,7 @@
-import Card from "../components/ui/Card";
+import InstallActivityPanel from "../components/status/InstallActivityPanel";
+import StatusPanel from "../components/status/StatusPanel";
 import ToolTable from "../components/tools/ToolTable";
+import Card from "../components/ui/Card";
 import type { InstallTaskViewState } from "../types/install";
 import type { ToolId, ToolStatus } from "../types/tool";
 
@@ -15,6 +17,8 @@ type EnvPageProps = {
   rows: ToolStatus[];
   isDetectingAll: boolean;
   installState: InstallTaskViewState;
+  activeInstallTool?: ToolStatus;
+  latestLogLine?: string;
   onDetectAll: () => Promise<void>;
   onDetect: (toolId: ToolId) => Promise<void>;
   onInstall: (toolId: ToolId) => Promise<void>;
@@ -23,12 +27,15 @@ type EnvPageProps = {
   onCancelInstall: () => Promise<void>;
   onOpenPathRepair: (tool: ToolStatus) => void;
   onNavigateLogs: () => void;
+  onOpenLogDirectory: () => Promise<void>;
 };
 
 function EnvPage({
   rows,
   isDetectingAll,
   installState,
+  activeInstallTool,
+  latestLogLine,
   onDetectAll,
   onDetect,
   onInstall,
@@ -37,7 +44,16 @@ function EnvPage({
   onCancelInstall,
   onOpenPathRepair,
   onNavigateLogs,
+  onOpenLogDirectory,
 }: EnvPageProps) {
+  const pathRows = rows.filter((row) => row.status === "installed_but_path_missing");
+  const detectFailedRows = rows.filter((row) => row.status === "detect_failed");
+  const installIssueRows = rows.filter(
+    (row) => row.status === "install_failed" || row.status === "broken",
+  );
+  const activeBaseInstall =
+    activeInstallTool?.category === "base" ? activeInstallTool : undefined;
+
   return (
     <div className="tool-page-layout">
       <section className="page-section panel" role="region" aria-label="基础环境">
@@ -70,10 +86,106 @@ function EnvPage({
           onInstallLatest={onInstallLatest}
           onCancelInstall={onCancelInstall}
           onOpenPathRepair={onOpenPathRepair}
+          onOpenLogDirectory={onOpenLogDirectory}
+          onNavigateLogs={onNavigateLogs}
         />
       </section>
 
       <div className="tool-page-sidebar">
+        {activeBaseInstall ? (
+          <InstallActivityPanel
+            toolName={activeBaseInstall.name}
+            latestLogLine={latestLogLine}
+            onCancelInstall={onCancelInstall}
+            onNavigateLogs={onNavigateLogs}
+          />
+        ) : null}
+
+        {pathRows.length > 0 ? (
+          <StatusPanel
+            tone="warning"
+            eyebrow="PATH 缺失"
+            title="可执行文件存在，但终端 PATH 没刷新"
+            description="如果工具是刚刚安装的，先重启终端；如果仍无效，再使用手动 PATH 说明。"
+            actions={
+              <div className="action-group">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => onOpenPathRepair(pathRows[0])}
+                >
+                  查看 PATH 修复说明
+                </button>
+                <button type="button" className="ghost-button" onClick={onNavigateLogs}>
+                  查看日志
+                </button>
+              </div>
+            }
+            items={pathRows.map((row) => ({
+              id: row.id,
+              title: `${row.name} 已安装，但 PATH 中找不到`,
+              description: row.executablePath ?? "未返回可执行文件路径",
+              meta: "本客户端不会自动改 PATH，只提供手动修复说明。",
+            }))}
+          />
+        ) : null}
+
+        {detectFailedRows.length > 0 ? (
+          <StatusPanel
+            tone="danger"
+            eyebrow="检测失败"
+            title="检测命令超时或返回异常"
+            description="优先展示后端返回的真实错误信息，并给出重新检测和日志入口。"
+            items={detectFailedRows.map((row) => ({
+              id: row.id,
+              title: `${row.name} 检测失败`,
+              description: row.errorMessage ?? "最近一次检测没有返回可用结果。",
+              actions: (
+                <div className="action-group">
+                  <button type="button" className="ghost-button" onClick={() => void onDetect(row.id)}>
+                    重新检测 {row.name}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => void onOpenLogDirectory()}
+                  >
+                    打开日志目录
+                  </button>
+                </div>
+              ),
+            }))}
+          />
+        ) : null}
+
+        {installIssueRows.length > 0 ? (
+          <StatusPanel
+            tone="danger"
+            eyebrow="安装失败"
+            title="安装失败 / 已损坏"
+            description="安装失败、版本探测异常或已损坏的工具，会在这里集中给出重试与日志入口。"
+            items={installIssueRows.map((row) => ({
+              id: row.id,
+              title: `${row.name} 需要处理`,
+              description: row.errorMessage ?? row.suggestion ?? "建议重新安装并查看日志。",
+              actions: (
+                <div className="action-group">
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => void onReinstall(row.id)}
+                  >
+                    重新安装 {row.name}
+                  </button>
+                  <button type="button" className="ghost-button" onClick={onNavigateLogs}>
+                    查看日志
+                  </button>
+                </div>
+              ),
+            }))}
+          />
+        ) : null}
+
         <Card
           title="检测说明"
           description="这些信息只读。如果你需要进一步排查，请前往日志页。"
@@ -92,17 +204,6 @@ function EnvPage({
               <strong>{formatLastChecked(rows)}</strong>
             </div>
           </div>
-        </Card>
-
-        <Card
-          title="状态说明"
-          description="installed、missing、broken、installing、detect_failed、PATH 缺失 全部沿用真实事件状态。"
-        >
-          <ul className="boundary-list">
-            <li>PATH 缺失不会自动修改环境变量，只提供修复说明。</li>
-            <li>检测失败时优先展示后端返回的真实错误消息。</li>
-            <li>安装中的工具可以单独取消，不影响其他工具状态。</li>
-          </ul>
         </Card>
       </div>
     </div>
