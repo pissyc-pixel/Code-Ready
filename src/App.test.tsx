@@ -449,6 +449,39 @@ describe("App UI migration", () => {
     });
   });
 
+  it("renders the migrated logs page with real preview actions and diagnostics context", async () => {
+    detectAllToolsMock.mockResolvedValue([]);
+    getLogPreviewMock.mockResolvedValue([
+      "[2026-05-06T14:32:01.221+08:00] [stdout] Detect cycle started · 9 tools",
+      "[2026-05-06T14:32:01.301+08:00] [stderr] npm: PATH does not contain %APPDATA%\\npm",
+    ]);
+    openFullLogFileMock.mockResolvedValue(undefined);
+    openLogDirectoryMock.mockResolvedValue(undefined);
+    exportDiagnosticsLogZipMock.mockResolvedValue({ path: "C:\\logs\\diagnostics.zip" });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /^日志/ }));
+
+    const logsRegion = await screen.findByRole("region", { name: "日志" });
+    expect(within(logsRegion).getByRole("heading", { name: "日志" })).toBeInTheDocument();
+    expect(screen.getByText("筛选 (level, source)")).toBeInTheDocument();
+    expect(screen.getByText("诊断 zip 包含什么")).toBeInTheDocument();
+    expect(screen.getByText("detect.log")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "刷新预览" }));
+    fireEvent.click(screen.getByRole("button", { name: "打开完整日志" }));
+    fireEvent.click(screen.getByRole("button", { name: "打开日志目录" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出诊断 zip" }));
+
+    await waitFor(() => {
+      expect(getLogPreviewMock).toHaveBeenCalledTimes(2);
+      expect(openFullLogFileMock).toHaveBeenCalledTimes(1);
+      expect(openLogDirectoryMock).toHaveBeenCalledTimes(1);
+      expect(exportDiagnosticsLogZipMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("streams install logs into the dashboard preview", async () => {
     detectAllToolsMock.mockResolvedValue([]);
 

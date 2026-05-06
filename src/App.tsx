@@ -28,6 +28,7 @@ import AiToolsPage from "./pages/AiToolsPage";
 import CCSwitchPage from "./pages/CCSwitchPage";
 import DashboardPage from "./pages/DashboardPage";
 import EnvPage from "./pages/EnvPage";
+import LogsPage from "./pages/LogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import {
   defaultAppConfig,
@@ -222,6 +223,10 @@ function App() {
       const message = error instanceof Error ? error.message : String(error);
       setLogActionMessage(`Log preview unavailable: ${message}`);
     }
+  }
+
+  async function runRefreshLogPreview() {
+    await loadLogPreview();
   }
 
   async function runDetectAll() {
@@ -482,46 +487,16 @@ function App() {
 
   function renderLogsPage() {
     return (
-      <section className="page-section panel" role="region" aria-label="日志">
-        <div className="panel-header">
-          <div>
-            <h2>Logs</h2>
-            <p>Recent install output is capped to the latest 5000 lines in this viewer.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void runExportDiagnosticsLogZip()}
-            disabled={isExportingDiagnostics}
-          >
-            {isExportingDiagnostics ? "Exporting diagnostics zip..." : "Export diagnostics zip"}
-          </button>
-        </div>
-        <div className="log-toolbar">
-          <div className="log-count">
-            Showing {logLines.length} / {LOG_VIEWER_LINE_LIMIT} lines
-          </div>
-          <div className="action-group">
-            <button type="button" onClick={() => void runOpenFullLogFile()}>
-              Open full log file
-            </button>
-            <button type="button" onClick={() => void runOpenLogDirectory()}>
-              Open log directory
-            </button>
-          </div>
-        </div>
-        {logActionMessage ? <p className="row-message">{logActionMessage}</p> : null}
-        <div className="log-viewer" role="log" aria-label="Install log viewer">
-          {logLines.length > 0 ? (
-            logLines.map((line, index) => (
-              <div className="log-line" key={`${index}-${line}`}>
-                {line}
-              </div>
-            ))
-          ) : (
-            <div className="log-empty">No log lines yet.</div>
-          )}
-        </div>
-      </section>
+      <LogsPage
+        logLines={logLines}
+        logActionMessage={logActionMessage}
+        isExportingDiagnostics={isExportingDiagnostics}
+        logViewerLineLimit={LOG_VIEWER_LINE_LIMIT}
+        onRefreshPreview={runRefreshLogPreview}
+        onOpenFullLogFile={runOpenFullLogFile}
+        onOpenLogDirectory={runOpenLogDirectory}
+        onExportDiagnostics={runExportDiagnosticsLogZip}
+      />
     );
   }
 

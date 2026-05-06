@@ -501,11 +501,76 @@ ol {
   min-height: 220px;
 }
 
+.log-viewer-card {
+  display: flex;
+  min-height: 360px;
+  max-height: 540px;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  border: 1px solid rgba(22, 24, 29, 0.08);
+  border-radius: 20px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(18, 21, 28, 0.98), rgba(27, 31, 39, 0.98)),
+    radial-gradient(circle at top right, rgba(63, 77, 196, 0.18), transparent 30%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
 .dashboard-log-line,
 .log-line,
 .log-empty,
 .dashboard-log-empty {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.log-entry {
+  display: grid;
+  grid-template-columns: 92px 58px 96px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #eef2f8;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.84rem;
+}
+
+.log-time,
+.log-source {
+  color: #aeb7c6;
+}
+
+.log-level {
+  display: inline-flex;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.log-level.is-info {
+  background: rgba(63, 77, 196, 0.22);
+  color: #d8dfff;
+}
+
+.log-level.is-warn {
+  background: rgba(183, 121, 31, 0.24);
+  color: #ffe4a6;
+}
+
+.log-level.is-err {
+  background: rgba(196, 59, 59, 0.24);
+  color: #ffc0c0;
+}
+
+.log-message {
+  color: #f7f9fc;
   overflow-wrap: anywhere;
 }
 
@@ -825,16 +890,39 @@ th {
   margin-bottom: 12px;
 }
 
+.log-toolbar-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px 18px;
+  background: rgba(250, 251, 252, 0.94);
+}
+
+.log-toolbar-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.log-filter-hint {
+  align-self: flex-start;
+  border: 1px solid rgba(63, 77, 196, 0.14);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  background: rgba(63, 77, 196, 0.08);
+  color: #33408f;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .log-count {
   color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 700;
-}
-
-.log-viewer {
-  min-height: 360px;
-  max-height: 540px;
-  overflow: auto;
 }
 
 .modal-backdrop {
@@ -907,6 +995,40 @@ th {
   color: #8f3427;
 }
 
+.empty-state {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 320px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #d2d9e6;
+  text-align: center;
+  padding: 24px;
+}
+
+.empty-state-orb {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.7), transparent 32%),
+    linear-gradient(180deg, rgba(63, 77, 196, 0.95), rgba(84, 101, 223, 0.4));
+  box-shadow:
+    0 8px 26px rgba(63, 77, 196, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.empty-state strong {
+  font-size: 1.05rem;
+}
+
+.empty-state p {
+  max-width: 420px;
+  color: #b8bec9;
+}
+
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -934,6 +1056,7 @@ th {
   .card-header,
   .panel-header,
   .log-toolbar,
+  .log-toolbar-head,
   .action-list-item,
   .modal-header {
     display: block;
@@ -950,6 +1073,10 @@ th {
   .panel-header button,
   .card-header button {
     margin-top: 12px;
+  }
+
+  .log-entry {
+    grid-template-columns: 1fr;
   }
 }
 
