@@ -7,6 +7,7 @@ pub mod api;
 pub mod application;
 pub mod domain;
 pub mod platform;
+pub mod tools;
 
 pub fn run() -> tauri::Result<()> {
     let adapter = Arc::new(NativePlatformAdapter::new().map_err(|error| {
