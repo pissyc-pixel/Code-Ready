@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 pub const OUTPUT_LIMIT_BYTES: usize = 64 * 1024;
+const READER_JOIN_TIMEOUT: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProcessRequest {
@@ -158,6 +159,14 @@ fn read_bounded<R: Read>(mut reader: R) -> BoundedOutput {
 }
 
 fn join_reader(reader: std::thread::JoinHandle<BoundedOutput>) -> BoundedOutput {
+    let deadline = Instant::now() + READER_JOIN_TIMEOUT;
+    while !reader.is_finished() {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return BoundedOutput::default();
+        }
+        std::thread::sleep(remaining.min(Duration::from_millis(1)));
+    }
     reader.join().unwrap_or_default()
 }
 
@@ -178,5 +187,29 @@ impl SystemClock {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct SlowReader;
+
+    impl Read for SlowReader {
+        fn read(&mut self, _buffer: &mut [u8]) -> std::io::Result<usize> {
+            std::thread::sleep(Duration::from_secs(1));
+            Ok(0)
+        }
+    }
+
+    #[test]
+    fn reader_join_is_bounded_when_pipe_never_closes() {
+        let reader = std::thread::spawn(|| read_bounded(SlowReader));
+        let started = Instant::now();
+
+        let _ = join_reader(reader);
+
+        assert!(started.elapsed() < Duration::from_millis(500));
     }
 }

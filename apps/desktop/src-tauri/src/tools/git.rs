@@ -73,6 +73,9 @@ impl ToolDetector for GitDetector {
                     checked_at_epoch_ms,
                 )
             }
+            ProcessOutcome::Exited { code: Some(0), .. } => {
+                platform_probe_failed(display_path, ProcessExitKind::Success, checked_at_epoch_ms)
+            }
             ProcessOutcome::Exited { code: Some(_), .. } => observation(
                 ToolId::Git,
                 ObservedToolState::Absent,
@@ -234,6 +237,46 @@ mod tests {
         assert_eq!(
             observation.evidence.code,
             DetectionEvidenceCode::AppleDeveloperToolsMissing
+        );
+        assert_eq!(
+            runner.requests(),
+            vec![ProcessRequest::apple_developer_dir_probe()]
+        );
+    }
+
+    #[test]
+    fn apple_git_invalid_successful_preflight_is_unknown_and_never_runs_the_shim() {
+        let adapter = FakePlatformAdapter::builder(PlatformId::MacosArm64)
+            .with_candidates(
+                ToolId::Git,
+                vec![ExecutableCandidate::new(
+                    "/usr/bin/git",
+                    "/usr/bin/git",
+                    CandidateOrigin::Path,
+                    CandidateKind::AppleGitShim,
+                )],
+            )
+            .build();
+        let runner = FakeProcessRunner::new([ProcessOutcome::Exited {
+            code: Some(0),
+            stdout: b"not-a-developer-directory\n".to_vec(),
+            stderr: vec![],
+            stdout_truncated: false,
+            stderr_truncated: false,
+        }]);
+        let clock = SystemClock;
+        let context = DetectionContext {
+            platform: &adapter,
+            runner: &runner,
+            clock: &clock,
+        };
+
+        let observation = GitDetector.detect(&context);
+
+        assert_eq!(observation.state, ObservedToolState::Unknown);
+        assert_eq!(
+            observation.evidence.code,
+            DetectionEvidenceCode::PlatformProbeFailed
         );
         assert_eq!(
             runner.requests(),

@@ -18,8 +18,8 @@ function snapshot(
 ): AppSnapshot {
   return {
     schemaVersion: 2,
-    snapshotVersion: 1n,
-    lastEventSequence: 0n,
+    snapshotVersion: 1,
+    lastEventSequence: 0,
     platform: "macosArm64",
     tools: [],
     observations,
@@ -32,8 +32,8 @@ function run(status: DetectionRun["status"]): DetectionRun {
     id: "run-1",
     requestedToolIds: ["git", "claudeCode", "codexCli"],
     status,
-    startedAtEpochMs: 1_754_000_000_000n,
-    finishedAtEpochMs: status === "running" ? null : 1_754_000_000_100n,
+    startedAtEpochMs: 1_754_000_000_000,
+    finishedAtEpochMs: status === "running" ? null : 1_754_000_000_100,
     errorCode: status === "failed" ? "internal" : null,
   };
 }
@@ -49,17 +49,20 @@ function fact(toolId: ToolObservation["toolId"]): ToolObservation {
       displayPath: "/fake/tool",
       exit: "success",
     },
-    checkedAtEpochMs: 1_754_000_000_000n,
+    checkedAtEpochMs: 1_754_000_000_000,
   };
 }
 
 test("runs the approved process-local onboarding flow", async () => {
   const startDetection = vi.fn().mockResolvedValue(undefined);
+  const refresh = vi.fn().mockResolvedValue(undefined);
   const onComplete = vi.fn();
   const { rerender } = render(
     <Onboarding
       snapshot={snapshot(null, [])}
       startDetection={startDetection}
+      refresh={refresh}
+      syncWarning={null}
       onComplete={onComplete}
     />,
   );
@@ -77,6 +80,8 @@ test("runs the approved process-local onboarding flow", async () => {
     <Onboarding
       snapshot={snapshot(run("running"), [])}
       startDetection={startDetection}
+      refresh={refresh}
+      syncWarning={null}
       onComplete={onComplete}
     />,
   );
@@ -90,6 +95,8 @@ test("runs the approved process-local onboarding flow", async () => {
         fact("codexCli"),
       ])}
       startDetection={startDetection}
+      refresh={refresh}
+      syncWarning={null}
       onComplete={onComplete}
     />,
   );
@@ -99,10 +106,13 @@ test("runs the approved process-local onboarding flow", async () => {
 
 test("keeps failed-run facts, exposes semantic errors, and has no privileged actions", () => {
   const startDetection = vi.fn().mockResolvedValue(undefined);
+  const refresh = vi.fn().mockResolvedValue(undefined);
   render(
     <Onboarding
       snapshot={snapshot(run("failed"), [fact("git")])}
       startDetection={startDetection}
+      refresh={refresh}
+      syncWarning={null}
       onComplete={vi.fn()}
       detectionStartError="internal"
     />,
@@ -128,6 +138,8 @@ test("renders fact and notComparable version messages independently", () => {
     <Onboarding
       snapshot={snapshot(run("completed"), [fact("git")])}
       startDetection={vi.fn()}
+      refresh={vi.fn().mockResolvedValue(undefined)}
+      syncWarning={null}
       onComplete={vi.fn()}
     />,
   );
@@ -136,4 +148,23 @@ test("renders fact and notComparable version messages independently", () => {
   expect(screen.getByText("版本 2.47.1")).toBeInTheDocument();
   expect(screen.getByText("已检测到版本，但本版本暂不判断新旧")).toBeInTheDocument();
   expect(screen.queryByText(/最新|需要升级|过旧/)).not.toBeInTheDocument();
+});
+
+test("shows an event warning and manual refresh while detection is running", () => {
+  const refresh = vi.fn().mockResolvedValue(undefined);
+
+  render(
+    <Onboarding
+      snapshot={snapshot(run("running"), [])}
+      startDetection={vi.fn()}
+      onComplete={vi.fn()}
+      refresh={refresh}
+      syncWarning="eventUnavailable"
+    />,
+  );
+
+  expect(screen.getByText("实时更新暂不可用；重新聚焦窗口或手动刷新可读取最新状态。"))
+    .toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "刷新状态" }));
+  expect(refresh).toHaveBeenCalledOnce();
 });

@@ -28,22 +28,22 @@ const git: ToolObservation = {
     displayPath: "~/bin/git",
     exit: "success",
   },
-  checkedAtEpochMs: 1_754_000_000_000n,
+  checkedAtEpochMs: 1_754_000_000_000,
 };
 
 const completedRun: DetectionRun = {
   id: "run-1",
   requestedToolIds: ["git"],
   status: "completed",
-  startedAtEpochMs: 1_754_000_000_000n,
-  finishedAtEpochMs: 1_754_000_000_100n,
+  startedAtEpochMs: 1_754_000_000_000,
+  finishedAtEpochMs: 1_754_000_000_100,
   errorCode: null,
 };
 
 const appSnapshot: AppSnapshot = {
   schemaVersion: 2,
-  snapshotVersion: 1n,
-  lastEventSequence: 0n,
+  snapshotVersion: 1,
+  lastEventSequence: 0,
   platform: "macosArm64",
   tools: [
     {

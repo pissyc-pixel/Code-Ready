@@ -126,6 +126,7 @@ pub struct ToolObservation {
     pub version: Option<String>,
     pub version_status: VersionStatus,
     pub evidence: DetectionEvidence,
+    #[ts(type = "number")]
     pub checked_at_epoch_ms: u64,
 }
 
@@ -152,7 +153,9 @@ pub struct DetectionRun {
     pub id: String,
     pub requested_tool_ids: Vec<ToolId>,
     pub status: DetectionRunStatus,
+    #[ts(type = "number")]
     pub started_at_epoch_ms: u64,
+    #[ts(type = "number | null")]
     pub finished_at_epoch_ms: Option<u64>,
     pub error_code: Option<DetectionRunErrorCode>,
 }
@@ -162,7 +165,9 @@ pub struct DetectionRun {
 #[ts(rename_all = "camelCase", export_to = "AppSnapshot.ts")]
 pub struct AppSnapshot {
     pub schema_version: u16,
+    #[ts(type = "number")]
     pub snapshot_version: u64,
+    #[ts(type = "number")]
     pub last_event_sequence: u64,
     pub platform: PlatformId,
     pub tools: Vec<ToolDefinition>,
@@ -184,8 +189,11 @@ pub enum DetectionEventType {
 #[ts(rename_all = "camelCase", export_to = "DetectionEventEnvelope.ts")]
 pub struct DetectionEventEnvelope {
     pub schema_version: u16,
+    #[ts(type = "number")]
     pub sequence: u64,
+    #[ts(type = "number")]
     pub snapshot_version: u64,
+    #[ts(type = "number")]
     pub emitted_at_epoch_ms: u64,
     pub event_type: DetectionEventType,
     pub run_id: String,

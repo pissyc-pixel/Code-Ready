@@ -16,7 +16,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 const mockedInvoke = vi.mocked(invoke);
 const mockedListen = vi.mocked(listen);
 
-function snapshot(snapshotVersion: bigint, lastEventSequence: bigint): AppSnapshot {
+function snapshot(snapshotVersion: number, lastEventSequence: number): AppSnapshot {
   return {
     schemaVersion: 2,
     snapshotVersion,
@@ -36,7 +36,7 @@ describe("detection API client", () => {
 
   test("uses only the two narrow commands and stable event name", async () => {
     mockedInvoke
-      .mockResolvedValueOnce(snapshot(1n, 0n))
+      .mockResolvedValueOnce(snapshot(1, 0))
       .mockResolvedValueOnce("run-1")
       .mockResolvedValueOnce("run-2");
     mockedListen.mockResolvedValue(() => undefined);

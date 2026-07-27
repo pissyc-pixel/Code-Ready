@@ -14,10 +14,13 @@ import {
   factMessageKey,
   versionMessageKey,
 } from "../detection/presentation";
+import type { SyncWarning } from "../detection/useDetectionSnapshot";
 
 export interface OnboardingProps {
   snapshot: AppSnapshot;
   startDetection: (toolIds?: ToolId[]) => Promise<void>;
+  refresh: () => Promise<void>;
+  syncWarning: SyncWarning;
   onComplete: () => void;
   detectionStartError?: CommandErrorCode | null;
 }
@@ -65,6 +68,8 @@ function ObservationSummary({ snapshot }: { snapshot: AppSnapshot }) {
 export default function Onboarding({
   snapshot,
   startDetection,
+  refresh,
+  syncWarning,
   onComplete,
   detectionStartError = null,
 }: OnboardingProps) {
@@ -87,6 +92,21 @@ export default function Onboarding({
         <h1>{message("app.title")}</h1>
       </header>
 
+      {syncWarning !== null && (
+        <p className="sync-warning" role="status">
+          {message(
+            syncWarning === "eventUnavailable"
+              ? "sync.eventUnavailable"
+              : "sync.refreshFailed",
+          )}
+        </p>
+      )}
+      {syncWarning !== null && step !== "detection" && (
+        <button type="button" onClick={() => void refresh()}>
+          {message("actions.refresh")}
+        </button>
+      )}
+
       {step === "welcome" && (
         <section aria-labelledby="onboarding-welcome-title">
           <h2 id="onboarding-welcome-title">{message("onboarding.welcome.title")}</h2>
@@ -102,6 +122,9 @@ export default function Onboarding({
         <section aria-labelledby="onboarding-detection-title">
           <h2 id="onboarding-detection-title">{message("onboarding.detecting.title")}</h2>
           <p role="status" aria-live="polite">{message("detection.running")}</p>
+          <button type="button" onClick={() => void refresh()}>
+            {message("actions.refresh")}
+          </button>
         </section>
       )}
 

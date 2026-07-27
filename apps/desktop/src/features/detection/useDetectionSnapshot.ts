@@ -50,7 +50,7 @@ export function useDetectionSnapshot(
   const [detectionStartError, setDetectionStartError] =
     useState<CommandErrorCode | null>(null);
   const snapshotRef = useRef<AppSnapshot | null>(null);
-  const highestSeenSequenceRef = useRef<bigint>(0n);
+  const highestSeenSequenceRef = useRef<number>(0);
   const refreshRef = useRef<Promise<void> | null>(null);
   const activeRef = useRef(true);
 
@@ -119,24 +119,26 @@ export function useDetectionSnapshot(
       setDetectionStartError(null);
       try {
         await api.detectTools(toolIds);
+        await refresh();
       } catch (error) {
         if (activeRef.current) {
           setDetectionStartError(commandErrorCode(error));
         }
       }
     },
-    [api],
+    [api, refresh],
   );
 
   useEffect(() => {
     activeRef.current = true;
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
 
     const onEvent = (event: DetectionEventEnvelope) => {
-      if (!activeRef.current) {
+      if (cancelled || !activeRef.current) {
         return;
       }
-      const currentSequence = snapshotRef.current?.lastEventSequence ?? 0n;
+      const currentSequence = snapshotRef.current?.lastEventSequence ?? 0;
       if (
         event.sequence <= currentSequence
         || event.sequence <= highestSeenSequenceRef.current
@@ -155,27 +157,27 @@ export function useDetectionSnapshot(
     const initialize = async () => {
       try {
         unlisten = await api.subscribeDetectionChanged(onEvent);
-        if (!activeRef.current) {
+        if (cancelled || !activeRef.current) {
           unlisten();
           unlisten = undefined;
           return;
         }
       } catch {
-        if (activeRef.current) {
+        if (!cancelled && activeRef.current) {
           setSyncWarning("eventUnavailable");
         }
       }
 
-      if (!activeRef.current) {
+      if (cancelled || !activeRef.current) {
         return;
       }
       try {
         const initial = await api.bootstrap();
-        if (activeRef.current) {
+        if (!cancelled && activeRef.current) {
           applySnapshot(initial);
         }
       } catch {
-        if (activeRef.current) {
+        if (!cancelled && activeRef.current) {
           setPhase("bootstrapError");
         }
       }
@@ -184,6 +186,7 @@ export function useDetectionSnapshot(
     void initialize();
 
     return () => {
+      cancelled = true;
       activeRef.current = false;
       window.removeEventListener("focus", onFocus);
       unlisten?.();

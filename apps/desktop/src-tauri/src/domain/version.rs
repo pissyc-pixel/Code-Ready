@@ -71,6 +71,20 @@ fn single_ascii_line(output: &[u8]) -> Option<&str> {
 
 fn parse_git(line: &str) -> Option<ParsedVersion> {
     let token = line.strip_prefix("git version ")?;
+    if let Some((numeric_token, apple_suffix)) = token.split_once(' ') {
+        let numeric = parse_exact_three_numeric_segments(numeric_token)?;
+        let build = apple_suffix
+            .strip_prefix("(Apple Git-")?
+            .strip_suffix(')')?;
+        if build.is_empty() || !build.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        return Some(ParsedVersion {
+            numeric,
+            normalized: numeric_token.to_owned(),
+        });
+    }
+
     if token.is_empty() || token.contains(char::is_whitespace) {
         return None;
     }
@@ -166,6 +180,18 @@ mod tests {
                 .unwrap()
                 .normalized(),
             "0.138.0"
+        );
+    }
+
+    #[test]
+    fn parses_apple_git_version_suffix_as_the_numeric_version() {
+        let parsed = ParsedVersion::parse_for(ToolId::Git, b"git version 2.39.3 (Apple Git-146)\n")
+            .expect("Apple Git version is parseable");
+
+        assert_eq!(parsed.normalized(), "2.39.3");
+        assert_eq!(
+            VersionPolicy::Unmanaged.classify(&parsed),
+            VersionStatus::NotComparable
         );
     }
 

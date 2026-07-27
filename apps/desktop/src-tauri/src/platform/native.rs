@@ -250,27 +250,51 @@ fn display_path(path: &Path, platform: &PlatformId) -> String {
         PlatformId::WindowsX64 => "USERPROFILE",
         PlatformId::MacosArm64 => "HOME",
     };
-    if let Some(root) = env::var_os(home_variable) {
-        let root = PathBuf::from(root);
-        if let Ok(relative) = path.strip_prefix(&root) {
-            let prefix = if *platform == PlatformId::WindowsX64 {
-                "%USERPROFILE%"
-            } else {
-                "~"
-            };
+    let root = env::var_os(home_variable).map(PathBuf::from);
+    display_path_with_root(path, platform, root.as_deref())
+}
+
+fn display_path_with_root(path: &Path, platform: &PlatformId, root: Option<&Path>) -> String {
+    if let Some(root) = root {
+        if *platform == PlatformId::WindowsX64 {
+            if let Some(relative) = strip_windows_prefix(path, root) {
+                return if relative.is_empty() {
+                    "%USERPROFILE%".to_owned()
+                } else {
+                    format!("%USERPROFILE%{relative}")
+                };
+            }
+        } else if let Ok(relative) = path.strip_prefix(root) {
             return if relative.as_os_str().is_empty() {
-                prefix.to_owned()
+                "~".to_owned()
             } else {
-                format!(
-                    "{prefix}{}{}",
-                    std::path::MAIN_SEPARATOR,
-                    relative.display()
-                )
+                format!("~{}{}", std::path::MAIN_SEPARATOR, relative.display())
             };
         }
     }
 
     path.display().to_string()
+}
+
+fn strip_windows_prefix<'a>(path: &'a Path, root: &Path) -> Option<&'a str> {
+    let path = path.to_str()?;
+    let root = root.to_str()?.trim_end_matches(['\\', '/']);
+    let path_lower = path.to_ascii_lowercase();
+    let root_lower = root.to_ascii_lowercase();
+
+    if path_lower == root_lower {
+        return Some("");
+    }
+    if !path_lower.starts_with(&root_lower) {
+        return None;
+    }
+
+    let root_length = root.len();
+    let separator = path.as_bytes().get(root_length).copied()?;
+    if separator != b'\\' && separator != b'/' {
+        return None;
+    }
+    Some(&path[root_length..])
 }
 
 #[cfg(test)]
@@ -332,5 +356,16 @@ mod tests {
             known_location_templates(PlatformId::WindowsX64, ToolId::CodexCli),
             vec!["%LOCALAPPDATA%\\Programs\\OpenAI\\Codex\\bin\\codex.exe"]
         );
+    }
+
+    #[test]
+    fn windows_home_redaction_ignores_path_case() {
+        let displayed = display_path_with_root(
+            Path::new(r"c:\users\alice\bin\git.exe"),
+            &PlatformId::WindowsX64,
+            Some(Path::new(r"C:\Users\Alice")),
+        );
+
+        assert_eq!(displayed, r"%USERPROFILE%\bin\git.exe");
     }
 }

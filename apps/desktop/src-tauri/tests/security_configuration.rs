@@ -138,6 +138,11 @@ fn slice_one_keeps_the_ipc_event_dependency_and_generated_contract_surface_narro
     assert!(!generated.join("BootstrapState.ts").exists());
     assert!(generated.join("AppSnapshot.ts").exists());
     assert!(generated.join("DetectionEventEnvelope.ts").exists());
+    let app_snapshot = read_text("../src/shared/api/generated/AppSnapshot.ts");
+    assert!(app_snapshot.contains("snapshotVersion: number"));
+    assert!(app_snapshot.contains("lastEventSequence: number"));
+    let detection_event = read_text("../src/shared/api/generated/DetectionEventEnvelope.ts");
+    assert!(detection_event.contains("sequence: number"));
 }
 
 #[test]

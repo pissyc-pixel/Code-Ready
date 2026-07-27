@@ -4,4 +4,4 @@ import type { ObservedToolState } from "./ObservedToolState";
 import type { ToolId } from "./ToolId";
 import type { VersionStatus } from "./VersionStatus";
 
-export type ToolObservation = { toolId: ToolId, state: ObservedToolState, version: string | null, versionStatus: VersionStatus, evidence: DetectionEvidence, checkedAtEpochMs: bigint, };
+export type ToolObservation = { toolId: ToolId, state: ObservedToolState, version: string | null, versionStatus: VersionStatus, evidence: DetectionEvidence, checkedAtEpochMs: number, };

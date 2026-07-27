@@ -42,6 +42,8 @@ function ReadyApp({ detection }: { detection: ReadyDetectionSnapshotState }) {
       <Onboarding
         snapshot={detection.snapshot}
         startDetection={detection.startDetection}
+        refresh={detection.refresh}
+        syncWarning={detection.syncWarning}
         detectionStartError={detection.detectionStartError}
         onComplete={() => setMode("dashboard")}
       />

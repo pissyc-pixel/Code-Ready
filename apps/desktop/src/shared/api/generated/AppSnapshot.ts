@@ -4,4 +4,4 @@ import type { PlatformId } from "./PlatformId";
 import type { ToolDefinition } from "./ToolDefinition";
 import type { ToolObservation } from "./ToolObservation";
 
-export type AppSnapshot = { schemaVersion: number, snapshotVersion: bigint, lastEventSequence: bigint, platform: PlatformId, tools: Array<ToolDefinition>, observations: Array<ToolObservation>, detectionRun: DetectionRun | null, };
+export type AppSnapshot = { schemaVersion: number, snapshotVersion: number, lastEventSequence: number, platform: PlatformId, tools: Array<ToolDefinition>, observations: Array<ToolObservation>, detectionRun: DetectionRun | null, };

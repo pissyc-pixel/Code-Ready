@@ -3,4 +3,4 @@ import type { DetectionRunErrorCode } from "./DetectionRunErrorCode";
 import type { DetectionRunStatus } from "./DetectionRunStatus";
 import type { ToolId } from "./ToolId";
 
-export type DetectionRun = { id: string, requestedToolIds: Array<ToolId>, status: DetectionRunStatus, startedAtEpochMs: bigint, finishedAtEpochMs: bigint | null, errorCode: DetectionRunErrorCode | null, };
+export type DetectionRun = { id: string, requestedToolIds: Array<ToolId>, status: DetectionRunStatus, startedAtEpochMs: number, finishedAtEpochMs: number | null, errorCode: DetectionRunErrorCode | null, };

@@ -64,7 +64,7 @@ function observation(
       displayPath: "~/bin/git",
       exit: "success",
     },
-    checkedAtEpochMs: 1_754_000_000_000n,
+    checkedAtEpochMs: 1_754_000_000_000,
     ...overrides,
   };
 }
@@ -74,7 +74,7 @@ function runningRun(): DetectionRun {
     id: "run-1",
     requestedToolIds: ["git", "claudeCode", "codexCli"],
     status: "running",
-    startedAtEpochMs: 1_754_000_000_000n,
+    startedAtEpochMs: 1_754_000_000_000,
     finishedAtEpochMs: null,
     errorCode: null,
   };
@@ -87,8 +87,8 @@ function snapshot(
 ): AppSnapshot {
   return {
     schemaVersion: 2,
-    snapshotVersion: 1n,
-    lastEventSequence: 0n,
+    snapshotVersion: 1,
+    lastEventSequence: 0,
     platform,
     tools,
     observations,
