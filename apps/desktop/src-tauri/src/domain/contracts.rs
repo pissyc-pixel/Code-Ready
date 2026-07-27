@@ -3,7 +3,7 @@ use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase", export_to = "PlatformId.ts")]
 pub enum PlatformId {
     WindowsX64,
     MacosArm64,
@@ -11,7 +11,7 @@ pub enum PlatformId {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase", export_to = "ToolId.ts")]
 pub enum ToolId {
     Winget,
     Git,
@@ -22,7 +22,7 @@ pub enum ToolId {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase", export_to = "ToolRequirement.ts")]
 pub enum ToolRequirement {
     Default,
     Optional,
@@ -31,7 +31,7 @@ pub enum ToolRequirement {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase", export_to = "ToolCapability.ts")]
 pub enum ToolCapability {
     Detect,
     Install,
@@ -41,7 +41,7 @@ pub enum ToolCapability {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase", export_to = "PlatformPolicy.ts")]
 pub struct PlatformPolicy {
     pub platform: PlatformId,
     pub requirement: ToolRequirement,
@@ -49,7 +49,7 @@ pub struct PlatformPolicy {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase", export_to = "ToolDefinition.ts")]
 pub struct ToolDefinition {
     pub id: ToolId,
     pub label_key: String,
@@ -60,7 +60,7 @@ pub struct ToolDefinition {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase", export_to = "BootstrapState.ts")]
 pub struct BootstrapState {
     pub schema_version: u16,
     pub platform: PlatformId,
