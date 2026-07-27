@@ -1,0 +1,53 @@
+name: V2 CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Assert runner architecture
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            case "$(uname -m)" in
+              AMD64|x86_64) ;;
+              *) echo "Expected Windows x64 runner" >&2; exit 1 ;;
+            esac
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            test "$(uname -m)" = "arm64"
+          else
+            echo "Unsupported runner OS" >&2
+            exit 1
+          fi
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Run complete checks
+        run: npm run check
+
+      - name: Build unsigned Tauri application
+        run: npm run tauri:build

@@ -58,3 +58,27 @@ fn main_capability_is_explicit_and_minimal() {
         assert!(!serialized.contains(forbidden));
     }
 }
+
+#[test]
+fn ci_matrix_uses_both_compile_runners_without_claiming_clean_machine_acceptance() {
+    let workflow_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../..")
+        .join(".github/workflows/ci.yml");
+    let workflow = fs::read_to_string(workflow_path).expect("CI workflow exists");
+
+    for required in [
+        "windows-2025",
+        "macos-15",
+        "node-version: 24",
+        "MACOSX_DEPLOYMENT_TARGET: \"13.0\"",
+        "npm ci",
+        "npm run check",
+        "npm run tauri:build",
+        "uname -m",
+        "arm64",
+    ] {
+        assert!(workflow.contains(required), "CI workflow lacks {required}");
+    }
+
+    assert!(!workflow.contains("Windows 11"));
+}
