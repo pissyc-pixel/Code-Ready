@@ -8,6 +8,12 @@ export const messages = {
   "onboarding.detecting.title": "正在检测开发工具",
   "onboarding.explain.title": "检测完成",
   "onboarding.enterStatusCenter": "进入状态中心",
+  "dashboard.title": "开发环境状态",
+  "dashboard.readOnly": "只读检测",
+  "dashboard.needsAttention": "需要处理",
+  "dashboard.healthy": "正常可用",
+  "dashboard.notYetDetected": "尚未检测",
+  "dashboard.path": "检测路径",
   "detection.running": "检测正在进行…",
   "detection.runFailed": "检测任务意外停止，工具卡片仍显示最近一次已知事实。",
   "detection.startError": "暂时无法开始检测，请重试。",
@@ -28,6 +34,7 @@ export const messages = {
   "tools.codexCli.name": "Codex CLI",
   "actions.retry": "重试",
   "actions.refresh": "刷新状态",
+  "actions.redetect": "重新检测",
   "actions.redetectAll": "重新检测全部",
   "actions.redetectOne": "重新检测此工具",
 
@@ -66,4 +73,8 @@ export function toolLabel(labelKey: string): string {
 
 export function formatObservedVersion(version: string): string {
   return `版本 ${version}`;
+}
+
+export function formatRedetectOne(label: string): string {
+  return `${messages["actions.redetect"]} ${label}`;
 }
