@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use crate::domain::contracts::{PlatformId, ToolId};
 
 pub mod fake;
+pub mod fake_process;
 pub mod native;
+pub mod process;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CandidateOrigin {
