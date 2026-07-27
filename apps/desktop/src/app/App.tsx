@@ -1,56 +1,73 @@
-import { useDetectionSnapshot } from "../features/detection/useDetectionSnapshot";
-import type { AppSnapshot } from "../shared/api/generated";
-import { messages } from "../shared/i18n/zh-CN";
+import { useState } from "react";
 
-function platformLabel(platform: AppSnapshot["platform"]): string {
-  switch (platform) {
-    case "windowsX64":
-      return messages.platformWindowsX64;
-    case "macosArm64":
-      return messages.platformMacosArm64;
-    default:
-      return messages.platformUnknown;
-  }
+import Onboarding from "../features/onboarding/Onboarding";
+import StatusCenter from "../features/dashboard/StatusCenter";
+import {
+  type DetectionSnapshotState,
+  useDetectionSnapshot,
+} from "../features/detection/useDetectionSnapshot";
+import type { AppSnapshot } from "../shared/api/generated";
+import { message } from "../shared/i18n/zh-CN";
+
+function LoadingScreen() {
+  return (
+    <main className="app-shell">
+      <p className="status-message">{message("loadingBootstrap")}</p>
+    </main>
+  );
 }
 
-export default function App() {
-  const { phase, snapshot } = useDetectionSnapshot();
+function BootstrapErrorScreen({ onRetry }: { onRetry: () => Promise<void> }) {
+  return (
+    <main className="app-shell">
+      <p className="status-message" role="alert">{message("bootstrapError")}</p>
+      <button type="button" onClick={() => void onRetry()}>
+        {message("actions.retry")}
+      </button>
+    </main>
+  );
+}
 
-  if (phase === "bootstrapError") {
-    return (
-      <main className="app-shell">
-        <p className="status-message">{messages.bootstrapError}</p>
-      </main>
-    );
-  }
+type ReadyDetectionSnapshotState = Omit<DetectionSnapshotState, "snapshot"> & {
+  snapshot: AppSnapshot;
+};
 
-  if (!snapshot) {
+function ReadyApp({ detection }: { detection: ReadyDetectionSnapshotState }) {
+  const [mode, setMode] = useState<"onboarding" | "dashboard">(
+    () => (detection.snapshot.detectionRun?.status === "completed" ? "dashboard" : "onboarding"),
+  );
+
+  if (mode === "onboarding") {
     return (
-      <main className="app-shell">
-        <p className="status-message">{messages.loadingBootstrap}</p>
-      </main>
+      <Onboarding
+        snapshot={detection.snapshot}
+        startDetection={detection.startDetection}
+        detectionStartError={detection.detectionStartError}
+        onComplete={() => setMode("dashboard")}
+      />
     );
   }
 
   return (
-    <main className="app-shell">
-      <header className="hero">
-        <p className="eyebrow">{messages.baseline}</p>
-        <h1>{messages.appTitle}</h1>
-      </header>
-
-      <section className="summary-grid" aria-label={messages.platformHeading}>
-        <article className="summary-card">
-          <p className="card-label">{messages.platformHeading}</p>
-          <p className="card-value">{platformLabel(snapshot.platform)}</p>
-        </article>
-        <article className="summary-card">
-          <p className="card-label">{messages.registryHeading}</p>
-          <p className="card-value">{messages.toolCount(snapshot.tools.length)}</p>
-        </article>
-      </section>
-
-      <p className="next-slice">{messages.nextSlicePlaceholder}</p>
-    </main>
+    <StatusCenter
+      snapshot={detection.snapshot}
+      startDetection={detection.startDetection}
+      refresh={detection.refresh}
+      syncWarning={detection.syncWarning}
+      detectionStartError={detection.detectionStartError}
+    />
   );
+}
+
+export default function App() {
+  const detection = useDetectionSnapshot();
+
+  if (detection.phase === "bootstrapError") {
+    return <BootstrapErrorScreen onRetry={detection.refresh} />;
+  }
+  if (detection.phase === "loading" || detection.snapshot === null) {
+    return <LoadingScreen />;
+  }
+
+  return <ReadyApp detection={detection as ReadyDetectionSnapshotState} />;
 }

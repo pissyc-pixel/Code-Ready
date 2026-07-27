@@ -1,19 +1,44 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import type { AppSnapshot } from "../shared/api/generated";
-import { bootstrap, subscribeDetectionChanged } from "../shared/api/client";
+import type {
+  AppSnapshot,
+  DetectionRun,
+  ToolObservation,
+} from "../shared/api/generated";
+import type {
+  DetectionSnapshotState,
+} from "../features/detection/useDetectionSnapshot";
+import { useDetectionSnapshot } from "../features/detection/useDetectionSnapshot";
 import App from "./App";
 
-vi.mock("../shared/api/client", () => ({
-  bootstrap: vi.fn(),
-  detectTools: vi.fn(),
-  subscribeDetectionChanged: vi.fn(),
-  commandErrorCode: vi.fn(),
+vi.mock("../features/detection/useDetectionSnapshot", () => ({
+  useDetectionSnapshot: vi.fn(),
 }));
 
-const mockedBootstrap = vi.mocked(bootstrap);
-const mockedSubscribe = vi.mocked(subscribeDetectionChanged);
+const mockedUseDetectionSnapshot = vi.mocked(useDetectionSnapshot);
+
+const git: ToolObservation = {
+  toolId: "git",
+  state: "presentHealthy",
+  version: "2.47.1",
+  versionStatus: "notComparable",
+  evidence: {
+    code: "pathCommandHealthy",
+    displayPath: "~/bin/git",
+    exit: "success",
+  },
+  checkedAtEpochMs: 1_754_000_000_000n,
+};
+
+const completedRun: DetectionRun = {
+  id: "run-1",
+  requestedToolIds: ["git"],
+  status: "completed",
+  startedAtEpochMs: 1_754_000_000_000n,
+  finishedAtEpochMs: 1_754_000_000_100n,
+  errorCode: null,
+};
 
 const appSnapshot: AppSnapshot = {
   schemaVersion: 2,
@@ -24,11 +49,22 @@ const appSnapshot: AppSnapshot = {
     {
       id: "git",
       labelKey: "tools.git.name",
-      platformPolicies: [
-        { platform: "windowsX64", requirement: "default" },
-        { platform: "macosArm64", requirement: "default" },
-      ],
-      capabilities: ["detect", "install", "upgrade", "repair"],
+      platformPolicies: [],
+      capabilities: ["detect"],
+      runtimeDependencies: [],
+    },
+    {
+      id: "claudeCode",
+      labelKey: "tools.claudeCode.name",
+      platformPolicies: [],
+      capabilities: ["detect"],
+      runtimeDependencies: [],
+    },
+    {
+      id: "codexCli",
+      labelKey: "tools.codexCli.name",
+      platformPolicies: [],
+      capabilities: ["detect"],
       runtimeDependencies: [],
     },
   ],
@@ -36,29 +72,90 @@ const appSnapshot: AppSnapshot = {
   detectionRun: null,
 };
 
-describe("App", () => {
-  beforeEach(() => {
-    mockedBootstrap.mockReset();
-    mockedSubscribe.mockReset();
-    mockedSubscribe.mockResolvedValue(() => undefined);
+function state(
+  overrides: Partial<DetectionSnapshotState> = {},
+): DetectionSnapshotState {
+  return {
+    phase: "ready",
+    snapshot: appSnapshot,
+    syncWarning: null,
+    detectionStartError: null,
+    refresh: vi.fn().mockResolvedValue(undefined),
+    startDetection: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
+afterEach(() => {
+  cleanup();
+});
+
+beforeEach(() => {
+  mockedUseDetectionSnapshot.mockReset();
+});
+
+test("shows loading while the first snapshot is unavailable", () => {
+  mockedUseDetectionSnapshot.mockReturnValue(state({ phase: "loading", snapshot: null }));
+
+  render(<App />);
+
+  expect(screen.getByText("正在读取当前设备…")).toBeInTheDocument();
+});
+
+test("shows a retryable bootstrap error", () => {
+  const refresh = vi.fn().mockResolvedValue(undefined);
+  mockedUseDetectionSnapshot.mockReturnValue(
+    state({ phase: "bootstrapError", snapshot: null, refresh }),
+  );
+
+  render(<App />);
+
+  expect(screen.getByText("暂时无法读取设备状态。")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "重试" }));
+  expect(refresh).toHaveBeenCalledOnce();
+});
+
+test("shows onboarding for the first process-local run", () => {
+  mockedUseDetectionSnapshot.mockReturnValue(state());
+
+  render(<App />);
+
+  expect(screen.getByRole("heading", { name: "先看看这台电脑的开发环境" })).toBeInTheDocument();
+});
+
+test("reload with a completed run opens the status center", () => {
+  mockedUseDetectionSnapshot.mockReturnValue(
+    state({ snapshot: { ...appSnapshot, observations: [git], detectionRun: completedRun } }),
+  );
+
+  render(<App />);
+
+  expect(screen.getByRole("heading", { name: "开发环境状态" })).toBeInTheDocument();
+});
+
+test("completing onboarding enters the status center without persistence", () => {
+  let current = state();
+  mockedUseDetectionSnapshot.mockImplementation(() => current);
+  const view = render(<App />);
+
+  expect(screen.getByRole("button", { name: "开始检测" })).toBeInTheDocument();
+  current = state({
+    snapshot: { ...appSnapshot, observations: [git], detectionRun: completedRun },
   });
+  view.rerender(<App />);
 
-  test("shows the loading state before bootstrap is available", () => {
-    mockedBootstrap.mockReturnValue(new Promise(() => undefined));
+  fireEvent.click(screen.getByRole("button", { name: "进入状态中心" }));
+  expect(screen.getByRole("heading", { name: "开发环境状态" })).toBeInTheDocument();
+});
 
-    render(<App />);
+test("shows a sync warning without blocking the status center", () => {
+  mockedUseDetectionSnapshot.mockReturnValue(state({
+    snapshot: { ...appSnapshot, observations: [git], detectionRun: completedRun },
+    syncWarning: "refreshFailed",
+  }));
 
-    expect(screen.getByText("正在读取当前设备…")).toBeInTheDocument();
-  });
+  render(<App />);
 
-  test("shows the current platform and registry summary without action controls", async () => {
-    mockedBootstrap.mockResolvedValue(appSnapshot);
-
-    render(<App />);
-
-    expect(await screen.findByText("Code-Ready V2")).toBeInTheDocument();
-    expect(screen.getByText("macOS Apple Silicon")).toBeInTheDocument();
-    expect(screen.getByText("已载入 1 项内置工具定义")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /安装|提权|登录|API Key|遥测/ })).not.toBeInTheDocument();
-  });
+  expect(screen.getByRole("heading", { name: "开发环境状态" })).toBeInTheDocument();
+  expect(screen.getByText("暂时无法刷新，下面仍显示最近一次已知状态。")).toBeInTheDocument();
 });
