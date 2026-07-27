@@ -7,8 +7,7 @@ use code_ready_desktop_lib::application::detection::{
 };
 use code_ready_desktop_lib::application::snapshot_store::SnapshotStore;
 use code_ready_desktop_lib::domain::contracts::{
-    AppSnapshot, DetectionRunStatus, ObservedToolState, PlatformId, ToolId,
-    VersionStatus,
+    AppSnapshot, DetectionRunStatus, ObservedToolState, PlatformId, ToolId, VersionStatus,
 };
 use code_ready_desktop_lib::domain::tool_registry::built_in_tool_registry;
 use code_ready_desktop_lib::platform::fake::FakePlatformAdapter;
@@ -49,20 +48,24 @@ struct EndToEndHarness {
     runner: Arc<FakeProcessRunner>,
 }
 
-impl EndToEndHarness {
-    fn new(platform: PlatformId) -> EndToEndHarnessBuilder {
+impl EndToEndHarnessBuilder {
+    fn for_platform(platform: PlatformId) -> Self {
         EndToEndHarnessBuilder {
             platform: platform.clone(),
             adapter: FakePlatformAdapter::builder(platform),
             outcomes: vec![],
         }
     }
+}
 
+impl EndToEndHarness {
     fn bootstrap(&self) -> AppSnapshot {
         self.store.snapshot()
     }
 
-    fn detect_all(&self) -> Result<String, code_ready_desktop_lib::application::detection::StartDetectionError> {
+    fn detect_all(
+        &self,
+    ) -> Result<String, code_ready_desktop_lib::application::detection::StartDetectionError> {
         self.service.start(None)
     }
 
@@ -197,7 +200,7 @@ fn facts(snapshot: &AppSnapshot) -> Vec<(ToolId, ObservedToolState, VersionStatu
 #[test]
 fn windows_and_macos_fake_flows_produce_identical_fact_semantics() {
     for platform in [PlatformId::WindowsX64, PlatformId::MacosArm64] {
-        let harness = EndToEndHarness::new(platform)
+        let harness = EndToEndHarnessBuilder::for_platform(platform)
             .with_path_native(ToolId::Git, "git version 2.47.1")
             .with_known_native(ToolId::ClaudeCode, "2.1.89 (Claude Code)")
             .without_candidate(ToolId::CodexCli);
@@ -223,7 +226,11 @@ fn windows_and_macos_fake_flows_produce_identical_fact_semantics() {
                     ObservedToolState::PresentPathIssue,
                     VersionStatus::NotComparable,
                 ),
-                (ToolId::CodexCli, ObservedToolState::Absent, VersionStatus::Unknown),
+                (
+                    ToolId::CodexCli,
+                    ObservedToolState::Absent,
+                    VersionStatus::Unknown
+                ),
             ]
         );
         assert_eq!(final_snapshot.last_event_sequence, 5);
@@ -237,7 +244,7 @@ fn windows_and_macos_fake_flows_produce_identical_fact_semantics() {
 
 #[test]
 fn detection_flow_is_read_only_and_never_requests_privilege_or_network() {
-    let harness = EndToEndHarness::new(PlatformId::WindowsX64).with_all_absent();
+    let harness = EndToEndHarnessBuilder::for_platform(PlatformId::WindowsX64).with_all_absent();
     let run_id = harness.detect_all().unwrap();
     harness.wait_until_completed(&run_id);
 
@@ -248,7 +255,7 @@ fn detection_flow_is_read_only_and_never_requests_privilege_or_network() {
 
 #[test]
 fn process_request_facts_never_include_shell_or_mutating_arguments() {
-    let harness = EndToEndHarness::new(PlatformId::MacosArm64)
+    let harness = EndToEndHarnessBuilder::for_platform(PlatformId::MacosArm64)
         .with_path_native(ToolId::Git, "git version 2.47.1")
         .with_known_native(ToolId::ClaudeCode, "2.1.89 (Claude Code)")
         .without_candidate(ToolId::CodexCli);
@@ -268,7 +275,9 @@ fn process_request_facts_never_include_shell_or_mutating_arguments() {
             .iter()
             .any(|argument| argument == "install" || argument == "upgrade")
     }));
-    assert!(requests
-        .iter()
-        .all(|request| request.executable.to_string_lossy() != "/bin/sh"));
+    assert!(
+        requests
+            .iter()
+            .all(|request| request.executable.to_string_lossy() != "/bin/sh")
+    );
 }

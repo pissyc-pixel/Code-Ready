@@ -120,12 +120,18 @@ fn slice_one_keeps_the_ipc_event_dependency_and_generated_contract_surface_narro
         "tauri-plugin-shell",
         "tauri-plugin-process",
     ] {
-        assert!(!cargo.contains(forbidden), "Cargo.toml contains {forbidden}");
+        assert!(
+            !cargo.contains(forbidden),
+            "Cargo.toml contains {forbidden}"
+        );
     }
 
     let package = read_text("../package.json").to_ascii_lowercase();
     for forbidden in ["i18n-http", "i18next-http", "telemetry", "analytics"] {
-        assert!(!package.contains(forbidden), "package.json contains {forbidden}");
+        assert!(
+            !package.contains(forbidden),
+            "package.json contains {forbidden}"
+        );
     }
 
     let generated = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../src/shared/api/generated");
