@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Code-Ready V2",
+  "version": "0.0.0",
+  "identifier": "com.codeready.v2",
+  "build": {
+    "beforeDevCommand": "npm run dev:web",
+    "beforeBuildCommand": "npm run build:web",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Code-Ready V2",
+        "width": 960,
+        "height": 640
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "nsis"]
+  }
+}
