@@ -1,24 +1,63 @@
 use std::sync::Arc;
 
-use crate::domain::contracts::BootstrapState;
+use crate::application::snapshot_store::SnapshotStore;
+use crate::domain::contracts::{AppSnapshot, BootstrapState};
 use crate::domain::tool_registry::built_in_tool_registry;
 use crate::platform::PlatformAdapter;
+use crate::platform::process::SystemClock;
+use crate::tools::shared::Clock;
 
 pub struct BootstrapService {
-    adapter: Arc<dyn PlatformAdapter>,
+    store: Arc<SnapshotStore>,
 }
 
 impl BootstrapService {
-    pub fn new(adapter: Arc<dyn PlatformAdapter>) -> Self {
-        Self { adapter }
+    pub fn new<S>(source: S) -> Self
+    where
+        S: BootstrapServiceSource,
+    {
+        Self {
+            store: source.into_store(),
+        }
     }
 
+    pub fn get_snapshot(&self) -> AppSnapshot {
+        self.store.snapshot()
+    }
+
+    // Transitional Rust-only projection for the Slice 0 command until Task 8
+    // removes the legacy command surface.
     pub fn get_state(&self) -> BootstrapState {
+        let snapshot = self.get_snapshot();
         BootstrapState {
             schema_version: 1,
-            platform: self.adapter.platform(),
-            tools: built_in_tool_registry(),
+            platform: snapshot.platform,
+            tools: snapshot.tools,
         }
+    }
+}
+
+pub trait BootstrapServiceSource {
+    fn into_store(self) -> Arc<SnapshotStore>;
+}
+
+impl BootstrapServiceSource for Arc<SnapshotStore> {
+    fn into_store(self) -> Arc<SnapshotStore> {
+        self
+    }
+}
+
+impl<T> BootstrapServiceSource for Arc<T>
+where
+    T: PlatformAdapter + ?Sized + 'static,
+{
+    fn into_store(self) -> Arc<SnapshotStore> {
+        let platform = self.platform();
+        Arc::new(SnapshotStore::new(
+            platform,
+            built_in_tool_registry(),
+            Arc::new(SystemClock) as Arc<dyn Clock>,
+        ))
     }
 }
 
@@ -32,6 +71,14 @@ mod tests {
     use crate::domain::contracts::PlatformId;
     use crate::domain::tool_registry::built_in_tool_registry;
     use crate::platform::fake::FakePlatformAdapter;
+
+    struct FixedClock;
+
+    impl crate::tools::shared::Clock for FixedClock {
+        fn now_epoch_ms(&self) -> u64 {
+            100
+        }
+    }
 
     #[test]
     fn bootstrap_uses_platform_adapter_and_registry() {
@@ -55,6 +102,21 @@ mod tests {
         assert_eq!(state.schema_version, 1);
         assert_eq!(state.platform, PlatformId::WindowsX64);
         assert_eq!(state.tools, built_in_tool_registry());
+    }
+
+    #[test]
+    fn bootstrap_returns_the_current_snapshot_without_advancing_versions() {
+        let clock = Arc::new(FixedClock);
+        let store = Arc::new(crate::application::snapshot_store::SnapshotStore::new(
+            PlatformId::MacosArm64,
+            built_in_tool_registry(),
+            clock,
+        ));
+        let service = BootstrapService::new(store.clone());
+        let before = store.snapshot();
+
+        assert_eq!(service.get_snapshot(), before);
+        assert_eq!(service.get_snapshot(), before);
     }
 
     #[test]
