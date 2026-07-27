@@ -62,10 +62,14 @@ mod tests {
         let source_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
         let forbidden = [
             ["std", "process"].join("::"),
+            ["std", "env"].join("::"),
+            ["std", "fs"].join("::"),
             "power".to_owned() + "shell",
             ["cmd", ".", "exe"].concat(),
             ["/bin", "/sh"].concat(),
             ["c", "fg", "(", "target_os"].concat(),
+            "USERPROFILE".to_owned(),
+            "LOCALAPPDATA".to_owned(),
             "tauri".to_owned() + "::",
         ];
 
@@ -96,6 +100,9 @@ mod tests {
                 }
 
                 let source = fs::read_to_string(&entry_path).expect("source file is readable");
+                let source = source
+                    .split_once("#[cfg(test)]")
+                    .map_or(source.as_str(), |(production, _)| production);
                 for token in forbidden {
                     assert!(
                         !source.contains(token),
