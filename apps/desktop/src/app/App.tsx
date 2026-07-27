@@ -1,10 +1,8 @@
-import { useEffect, useState } from "react";
-
-import type { BootstrapState } from "../shared/api/generated";
-import { getBootstrapState } from "../shared/api/client";
+import { useDetectionSnapshot } from "../features/detection/useDetectionSnapshot";
+import type { AppSnapshot } from "../shared/api/generated";
 import { messages } from "../shared/i18n/zh-CN";
 
-function platformLabel(platform: BootstrapState["platform"]): string {
+function platformLabel(platform: AppSnapshot["platform"]): string {
   switch (platform) {
     case "windowsX64":
       return messages.platformWindowsX64;
@@ -16,30 +14,9 @@ function platformLabel(platform: BootstrapState["platform"]): string {
 }
 
 export default function App() {
-  const [bootstrap, setBootstrap] = useState<BootstrapState | null>(null);
-  const [hasError, setHasError] = useState(false);
+  const { phase, snapshot } = useDetectionSnapshot();
 
-  useEffect(() => {
-    let active = true;
-
-    void getBootstrapState()
-      .then((state) => {
-        if (active) {
-          setBootstrap(state);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setHasError(true);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  if (hasError) {
+  if (phase === "bootstrapError") {
     return (
       <main className="app-shell">
         <p className="status-message">{messages.bootstrapError}</p>
@@ -47,7 +24,7 @@ export default function App() {
     );
   }
 
-  if (!bootstrap) {
+  if (!snapshot) {
     return (
       <main className="app-shell">
         <p className="status-message">{messages.loadingBootstrap}</p>
@@ -65,11 +42,11 @@ export default function App() {
       <section className="summary-grid" aria-label={messages.platformHeading}>
         <article className="summary-card">
           <p className="card-label">{messages.platformHeading}</p>
-          <p className="card-value">{platformLabel(bootstrap.platform)}</p>
+          <p className="card-value">{platformLabel(snapshot.platform)}</p>
         </article>
         <article className="summary-card">
           <p className="card-label">{messages.registryHeading}</p>
-          <p className="card-value">{messages.toolCount(bootstrap.tools.length)}</p>
+          <p className="card-value">{messages.toolCount(snapshot.tools.length)}</p>
         </article>
       </section>
 

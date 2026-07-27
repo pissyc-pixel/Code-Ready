@@ -1,18 +1,24 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { BootstrapState } from "../shared/api/generated";
-import { getBootstrapState } from "../shared/api/client";
+import type { AppSnapshot } from "../shared/api/generated";
+import { bootstrap, subscribeDetectionChanged } from "../shared/api/client";
 import App from "./App";
 
 vi.mock("../shared/api/client", () => ({
-  getBootstrapState: vi.fn(),
+  bootstrap: vi.fn(),
+  detectTools: vi.fn(),
+  subscribeDetectionChanged: vi.fn(),
+  commandErrorCode: vi.fn(),
 }));
 
-const mockedGetBootstrapState = vi.mocked(getBootstrapState);
+const mockedBootstrap = vi.mocked(bootstrap);
+const mockedSubscribe = vi.mocked(subscribeDetectionChanged);
 
-const bootstrapState: BootstrapState = {
-  schemaVersion: 1,
+const appSnapshot: AppSnapshot = {
+  schemaVersion: 2,
+  snapshotVersion: 1n,
+  lastEventSequence: 0n,
   platform: "macosArm64",
   tools: [
     {
@@ -26,15 +32,19 @@ const bootstrapState: BootstrapState = {
       runtimeDependencies: [],
     },
   ],
+  observations: [],
+  detectionRun: null,
 };
 
 describe("App", () => {
   beforeEach(() => {
-    mockedGetBootstrapState.mockReset();
+    mockedBootstrap.mockReset();
+    mockedSubscribe.mockReset();
+    mockedSubscribe.mockResolvedValue(() => undefined);
   });
 
   test("shows the loading state before bootstrap is available", () => {
-    mockedGetBootstrapState.mockReturnValue(new Promise(() => undefined));
+    mockedBootstrap.mockReturnValue(new Promise(() => undefined));
 
     render(<App />);
 
@@ -42,7 +52,7 @@ describe("App", () => {
   });
 
   test("shows the current platform and registry summary without action controls", async () => {
-    mockedGetBootstrapState.mockResolvedValue(bootstrapState);
+    mockedBootstrap.mockResolvedValue(appSnapshot);
 
     render(<App />);
 
