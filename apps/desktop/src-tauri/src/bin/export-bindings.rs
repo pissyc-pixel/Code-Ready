@@ -87,8 +87,8 @@ mod tests {
             ]
         );
 
-        let generated_directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../src/shared/api/generated");
+        let generated_directory =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../src/shared/api/generated");
         let generated_files = fs::read_dir(generated_directory)
             .map(|entries| {
                 entries

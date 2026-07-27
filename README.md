@@ -1,112 +1,37 @@
-# Code-ready
+# Code-Ready V2
 
-> 面向 Windows 的 AI 编码环境准备工具 — 检测、安装和管理 Claude Code、Codex CLI、OpenCode、ccSwitch 等开发工具。
+Code-Ready V2 是内部代号下的 clean-slate rewrite，目标平台为 Windows 11 x64 与 macOS 13+ Apple Silicon。
 
-![Code-ready 界面预览](docs/images/code-ready-interface.png)
+## 当前状态
 
-## 项目简介
+Slice 0 只提供可启动的桌面骨架、Rust 权威 IPC 契约、类型化内置工具注册表、平台抽象和双平台编译 CI。它暂不检测、下载、安装或修复任何工具。
 
-配置 AI Coding 工具链对新手来说并不简单：CLI 工具的安装路径、版本状态、PATH 配置、ccSwitch 路径等信息分散且不透明，出问题后排查也很困难。
+V1 只保留在 Git 历史和 `main` 分支中，不参与当前 workspace 的构建。仓库当前没有开源许可证，也没有提交 `LICENSE` 文件。
 
-**Code-ready** 用桌面应用的方式，将环境检测、安装状态、修复提示和日志导出整合到一个界面中，帮助你快速了解和准备 AI 编码环境。
+当前应用显示平台和内置工具定义摘要。真实工具检测、安装计划、权限、配置、日志、迁移和更新能力按后续切片接入。
 
-## 核心功能
+## 平台与工具边界
 
-- **环境检测 Dashboard** — 一览所有工具的安装和运行状态
-- **基础环境检测** — Node.js、Git 等基础工具的版本和路径检查
-- **AI CLI 工具检测** — Claude Code、Codex CLI、OpenCode 等工具的状态展示
-- **ccSwitch 路径配置与检测** — 支持非默认路径、浏览选择 exe、版本检测
-- **PATH 缺失提示** — 检测工具是否已安装但未加入 PATH
-- **安装失败 / 检测失败状态提示** — 清晰标注各类异常状态
-- **非管理员权限提示** — 检测并提醒需要管理员权限的操作
-- **日志预览** — 在应用内直接查看日志内容
-- **打开日志目录** — 快速定位日志文件
-- **导出诊断 zip** — 一键打包诊断信息用于排查问题
-- **Windows 安装包分发** — 提供 NSIS 安装包和 MSI 安装包
+- Windows 默认工具矩阵包含 WinGet、Git、Node.js/npm、Claude Code 和 Codex CLI。
+- macOS 默认工具矩阵包含 Git、Claude Code 和 Codex CLI；Node.js/npm 只作为可选开发环境显示，不默认加入计划。
+- npm 是 Node.js 的派生能力，不是独立工具。
+- Claude Code 与 Codex CLI 的运行时安装策略不依赖 Node.js/npm。
 
-## 下载安装
+CI runner 只证明编译与自动化检查：`windows-2025` 是 Windows Server x64 环境，`macos-15` 必须实际为 arm64。Windows 11 和 macOS 13+ Apple Silicon 的干净机验收仍是后续门禁。
 
-前往右侧 [Releases](../../releases) 页面下载最新版本：
+## 开发
 
-| 文件 | 说明 |
-|------|------|
-| `Code-ready_0.1.0_x64-setup.exe` | 推荐下载，NSIS 安装包 |
-| `Code-ready_0.1.0_x64_en-US.msi` | 备选下载，MSI 安装包 |
+应用位于 `apps/desktop`，仓库根目录是 npm workspace。需要 Node.js 24、npm 11 和 Rust stable（最低 Rust 1.88）。
 
-> 当前版本为 v0.1.0，仅支持 Windows x64。
-
-## 使用说明
-
-1. 下载并安装 Code-ready
-2. 启动应用，查看 **Dashboard** 总览
-3. 进入 **基础环境** 页检查 Node.js / Git 等基础工具
-4. 进入 **AI 工具** 页检查 Claude Code / Codex CLI / OpenCode
-5. 进入 **ccSwitch** 页配置路径
-6. 如检测失败，进入 **日志** 页查看日志或导出诊断 zip
-
-## ccSwitch 非默认路径说明
-
-- 如果 ccSwitch 不在默认路径，可以在 ccSwitch 页面点击 **"浏览..."** 选择 exe 文件
-- 保存后重新检测即可
-- 如果版本无法读取但 exe 存在，会显示 **"版本未提供"**，这不代表未安装
-
-## 开发者运行
-
-### 环境要求
-
-- Node.js LTS
-- Rust 工具链（通过 rustup 安装）
-- Visual Studio Build Tools（提供 MSVC 链接器和 Windows SDK）
-- WebView2 Runtime（Windows 10 21H2+ 和 Windows 11 已预装）
-
-### 开发命令
-
-```powershell
-npm install                # 安装依赖
-npm run tauri dev          # 启动开发窗口
-npm run build              # 前端构建
-npm run tauri build        # 打包 Windows 安装包
+```bash
+npm install
+npm run check
+npm run build
+npm run tauri:build
 ```
 
-### 测试命令
+`npm run tauri:build` 在 Slice 0 生成当前平台的无签名应用可执行文件，不生成公开安装包，不代表签名、公证或干净机验收已完成。
 
-```powershell
-npx vitest run src/App.test.tsx --reporter=verbose
-```
+## 后续切片
 
-### 构建产物
-
-打包完成后，安装包位于：
-
-```
-src-tauri/target/release/bundle/nsis/Code-ready_0.1.0_x64-setup.exe
-src-tauri/target/release/bundle/msi/Code-ready_0.1.0_x64_en-US.msi
-```
-
-> **注意**：当前为未签名构建，请自行评估安全风险。
-
-## 技术栈
-
-- [Tauri](https://tauri.app/) v2 — 桌面应用框架
-- [React](https://react.dev/) 19 — 前端 UI
-- [TypeScript](https://www.typescriptlang.org/) 5 — 类型安全
-- [Rust](https://www.rust-lang.org/) — 后端逻辑与系统交互
-- [Vite](https://vite.dev/) 7 — 前端构建工具
-- [Vitest](https://vitest.dev/) — 前端测试框架
-
-## 项目状态
-
-当前版本为 **v0.1.0**，属于早期可体验版本，主要面向 Windows 平台。
-
-## Roadmap
-
-- 更完善的安装修复能力
-- 更详细的工具版本识别
-- 更好的 ccSwitch 配置管理
-- 更多 AI Coding 工具支持
-- 自动诊断报告
-- 更完整的错误修复向导
-
-## 免责声明
-
-Code-ready 是环境检测和辅助安装工具，不隶属于 Claude Code、Codex、OpenCode 或 ccSwitch 官方项目。相关工具名称归其各自项目所有。
+后续切片将按设计逐步加入只读检测、配置与日志、安装计划和可恢复安装会话，再接入真实工具与窄权限执行器。Slice 0 不启用遥测，也不包含安装、下载、提权、日志上传、代理接管或应用更新能力。

@@ -126,11 +126,20 @@ mod tests {
 
     #[test]
     fn runtime_dependency_graph_is_acyclic() {
-        fn visit(index: usize, tools: &[ToolDefinition], visiting: &mut [bool], visited: &mut [bool]) {
+        fn visit(
+            index: usize,
+            tools: &[ToolDefinition],
+            visiting: &mut [bool],
+            visited: &mut [bool],
+        ) {
             if visited[index] {
                 return;
             }
-            assert!(!visiting[index], "dependency cycle at {:?}", tools[index].id);
+            assert!(
+                !visiting[index],
+                "dependency cycle at {:?}",
+                tools[index].id
+            );
             visiting[index] = true;
 
             for dependency in &tools[index].runtime_dependencies {

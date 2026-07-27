@@ -28,10 +28,10 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
+    use super::BootstrapService;
     use crate::domain::contracts::PlatformId;
     use crate::domain::tool_registry::built_in_tool_registry;
     use crate::platform::fake::FakePlatformAdapter;
-    use super::BootstrapService;
 
     #[test]
     fn bootstrap_uses_platform_adapter_and_registry() {
@@ -70,10 +70,7 @@ mod tests {
         ];
 
         for module in ["domain", "application"] {
-            assert_source_tree_has_no_forbidden_tokens(
-                &source_root.join(module),
-                &forbidden,
-            );
+            assert_source_tree_has_no_forbidden_tokens(&source_root.join(module), &forbidden);
         }
     }
 
@@ -90,7 +87,11 @@ mod tests {
                     continue;
                 }
 
-                if entry_path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
+                if entry_path
+                    .extension()
+                    .and_then(|extension| extension.to_str())
+                    != Some("rs")
+                {
                     continue;
                 }
 

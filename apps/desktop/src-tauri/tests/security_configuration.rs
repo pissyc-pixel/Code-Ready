@@ -54,7 +54,9 @@ fn main_capability_is_explicit_and_minimal() {
     );
 
     let serialized = capability["permissions"].to_string();
-    for forbidden in ["shell", "process", "fs", "http", "dialog", "opener", "updater"] {
+    for forbidden in [
+        "shell", "process", "fs", "http", "dialog", "opener", "updater",
+    ] {
         assert!(!serialized.contains(forbidden));
     }
 }
