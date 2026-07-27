@@ -208,16 +208,6 @@ pub struct CommandError {
     pub retryable: bool,
 }
 
-// Transitional Rust-only compatibility for the Slice 0 service until the
-// versioned snapshot store replaces that service in Task 6.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct BootstrapState {
-    pub schema_version: u16,
-    pub platform: PlatformId,
-    pub tools: Vec<ToolDefinition>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,63 +1,19 @@
 use std::sync::Arc;
 
 use crate::application::snapshot_store::SnapshotStore;
-use crate::domain::contracts::{AppSnapshot, BootstrapState};
-use crate::domain::tool_registry::built_in_tool_registry;
-use crate::platform::PlatformAdapter;
-use crate::platform::process::SystemClock;
-use crate::tools::shared::Clock;
+use crate::domain::contracts::AppSnapshot;
 
 pub struct BootstrapService {
     store: Arc<SnapshotStore>,
 }
 
 impl BootstrapService {
-    pub fn new<S>(source: S) -> Self
-    where
-        S: BootstrapServiceSource,
-    {
-        Self {
-            store: source.into_store(),
-        }
+    pub fn new(store: Arc<SnapshotStore>) -> Self {
+        Self { store }
     }
 
     pub fn get_snapshot(&self) -> AppSnapshot {
         self.store.snapshot()
-    }
-
-    // Transitional Rust-only projection for the Slice 0 command until Task 8
-    // removes the legacy command surface.
-    pub fn get_state(&self) -> BootstrapState {
-        let snapshot = self.get_snapshot();
-        BootstrapState {
-            schema_version: 1,
-            platform: snapshot.platform,
-            tools: snapshot.tools,
-        }
-    }
-}
-
-pub trait BootstrapServiceSource {
-    fn into_store(self) -> Arc<SnapshotStore>;
-}
-
-impl BootstrapServiceSource for Arc<SnapshotStore> {
-    fn into_store(self) -> Arc<SnapshotStore> {
-        self
-    }
-}
-
-impl<T> BootstrapServiceSource for Arc<T>
-where
-    T: PlatformAdapter + ?Sized + 'static,
-{
-    fn into_store(self) -> Arc<SnapshotStore> {
-        let platform = self.platform();
-        Arc::new(SnapshotStore::new(
-            platform,
-            built_in_tool_registry(),
-            Arc::new(SystemClock) as Arc<dyn Clock>,
-        ))
     }
 }
 
@@ -70,7 +26,6 @@ mod tests {
     use super::BootstrapService;
     use crate::domain::contracts::PlatformId;
     use crate::domain::tool_registry::built_in_tool_registry;
-    use crate::platform::fake::FakePlatformAdapter;
 
     struct FixedClock;
 
@@ -78,30 +33,6 @@ mod tests {
         fn now_epoch_ms(&self) -> u64 {
             100
         }
-    }
-
-    #[test]
-    fn bootstrap_uses_platform_adapter_and_registry() {
-        let adapter = Arc::new(FakePlatformAdapter::new(PlatformId::MacosArm64));
-        let service = BootstrapService::new(adapter);
-
-        let state = service.get_state();
-
-        assert_eq!(state.schema_version, 1);
-        assert_eq!(state.platform, PlatformId::MacosArm64);
-        assert_eq!(state.tools, built_in_tool_registry());
-    }
-
-    #[test]
-    fn bootstrap_can_use_the_windows_fake_without_a_compile_time_platform_branch() {
-        let adapter = Arc::new(FakePlatformAdapter::new(PlatformId::WindowsX64));
-        let service = BootstrapService::new(adapter);
-
-        let state = service.get_state();
-
-        assert_eq!(state.schema_version, 1);
-        assert_eq!(state.platform, PlatformId::WindowsX64);
-        assert_eq!(state.tools, built_in_tool_registry());
     }
 
     #[test]
