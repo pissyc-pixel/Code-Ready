@@ -10,6 +10,9 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost; font-src 'self'; connect-src ipc: http://ipc.localhost"
+    },
     "windows": [
       {
         "label": "main",
@@ -21,6 +24,9 @@
   },
   "bundle": {
     "active": true,
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
     "targets": ["app", "nsis"]
   }
 }
