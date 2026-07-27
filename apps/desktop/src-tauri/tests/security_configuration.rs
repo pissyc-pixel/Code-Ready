@@ -91,6 +91,50 @@ fn slice_one_adds_no_privileged_or_network_surface() {
 }
 
 #[test]
+fn slice_one_keeps_the_ipc_event_dependency_and_generated_contract_surface_narrow() {
+    let lib = read_text("src/lib.rs");
+    assert!(lib.contains("api::commands::bootstrap"));
+    assert!(lib.contains("api::commands::detect_tools"));
+    assert_eq!(lib.matches("api::commands::").count(), 2);
+    assert!(!lib.contains("get_bootstrap_state"));
+
+    let events = read_text("src/api/events.rs");
+    let production_events = events
+        .split_once("#[cfg(test)]")
+        .map_or(events.as_str(), |(production, _)| production);
+    assert_eq!(
+        production_events.matches("\"detection.changed\"").count(),
+        1
+    );
+
+    let cargo = read_text("Cargo.toml").to_ascii_lowercase();
+    for forbidden in [
+        "reqwest",
+        "ureq",
+        "opentelemetry",
+        "sentry",
+        "analytics",
+        "sqlite",
+        "tokio",
+        "async-std",
+        "tauri-plugin-shell",
+        "tauri-plugin-process",
+    ] {
+        assert!(!cargo.contains(forbidden), "Cargo.toml contains {forbidden}");
+    }
+
+    let package = read_text("../package.json").to_ascii_lowercase();
+    for forbidden in ["i18n-http", "i18next-http", "telemetry", "analytics"] {
+        assert!(!package.contains(forbidden), "package.json contains {forbidden}");
+    }
+
+    let generated = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../src/shared/api/generated");
+    assert!(!generated.join("BootstrapState.ts").exists());
+    assert!(generated.join("AppSnapshot.ts").exists());
+    assert!(generated.join("DetectionEventEnvelope.ts").exists());
+}
+
+#[test]
 fn ci_matrix_uses_both_compile_runners_without_claiming_clean_machine_acceptance() {
     let workflow_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../..")
