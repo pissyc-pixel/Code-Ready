@@ -2,19 +2,34 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use code_ready_desktop_lib::domain::contracts::{
-    BootstrapState, PlatformId, PlatformPolicy, ToolCapability, ToolDefinition, ToolId,
-    ToolRequirement,
+    AppSnapshot, CommandError, CommandErrorCode, DetectionEventEnvelope, DetectionEventType,
+    DetectionEvidence, DetectionEvidenceCode, DetectionRun, DetectionRunErrorCode,
+    DetectionRunStatus, ObservedToolState, PlatformId, PlatformPolicy, ProcessExitKind,
+    ToolCapability, ToolDefinition, ToolId, ToolObservation, ToolRequirement, VersionStatus,
 };
 use ts_rs::{Config, TS};
 
-const CONTRACT_TYPE_NAMES: [&str; 7] = [
-    "BootstrapState",
+const CONTRACT_TYPE_NAMES: [&str; 20] = [
+    "AppSnapshot",
+    "CommandError",
+    "CommandErrorCode",
+    "DetectionEventEnvelope",
+    "DetectionEventType",
+    "DetectionEvidence",
+    "DetectionEvidenceCode",
+    "DetectionRun",
+    "DetectionRunErrorCode",
+    "DetectionRunStatus",
+    "ObservedToolState",
     "PlatformId",
     "PlatformPolicy",
+    "ProcessExitKind",
     "ToolCapability",
     "ToolDefinition",
     "ToolId",
+    "ToolObservation",
     "ToolRequirement",
+    "VersionStatus",
 ];
 
 #[cfg(test)]
@@ -44,13 +59,26 @@ fn export_bindings() -> Result<(), Box<dyn std::error::Error>> {
     clean_generated_types(&directory)?;
     let config = Config::new().with_out_dir(&directory);
 
-    BootstrapState::export(&config)?;
+    AppSnapshot::export(&config)?;
+    CommandError::export(&config)?;
+    CommandErrorCode::export(&config)?;
+    DetectionEventEnvelope::export(&config)?;
+    DetectionEventType::export(&config)?;
+    DetectionEvidence::export(&config)?;
+    DetectionEvidenceCode::export(&config)?;
+    DetectionRun::export(&config)?;
+    DetectionRunErrorCode::export(&config)?;
+    DetectionRunStatus::export(&config)?;
+    ObservedToolState::export(&config)?;
     PlatformId::export(&config)?;
     PlatformPolicy::export(&config)?;
+    ProcessExitKind::export(&config)?;
     ToolCapability::export(&config)?;
     ToolDefinition::export(&config)?;
     ToolId::export(&config)?;
+    ToolObservation::export(&config)?;
     ToolRequirement::export(&config)?;
+    VersionStatus::export(&config)?;
 
     let index = CONTRACT_TYPE_NAMES
         .iter()
@@ -77,13 +105,26 @@ mod tests {
         assert_eq!(
             exported_type_names(),
             vec![
-                "BootstrapState",
+                "AppSnapshot",
+                "CommandError",
+                "CommandErrorCode",
+                "DetectionEventEnvelope",
+                "DetectionEventType",
+                "DetectionEvidence",
+                "DetectionEvidenceCode",
+                "DetectionRun",
+                "DetectionRunErrorCode",
+                "DetectionRunStatus",
+                "ObservedToolState",
                 "PlatformId",
                 "PlatformPolicy",
+                "ProcessExitKind",
                 "ToolCapability",
                 "ToolDefinition",
                 "ToolId",
+                "ToolObservation",
                 "ToolRequirement",
+                "VersionStatus",
             ]
         );
 
@@ -101,13 +142,26 @@ mod tests {
 
         assert!(generated_files.iter().all(|file| {
             [
-                "BootstrapState.ts",
+                "AppSnapshot.ts",
+                "CommandError.ts",
+                "CommandErrorCode.ts",
+                "DetectionEventEnvelope.ts",
+                "DetectionEventType.ts",
+                "DetectionEvidence.ts",
+                "DetectionEvidenceCode.ts",
+                "DetectionRun.ts",
+                "DetectionRunErrorCode.ts",
+                "DetectionRunStatus.ts",
+                "ObservedToolState.ts",
                 "PlatformId.ts",
                 "PlatformPolicy.ts",
+                "ProcessExitKind.ts",
                 "ToolCapability.ts",
                 "ToolDefinition.ts",
                 "ToolId.ts",
+                "ToolObservation.ts",
                 "ToolRequirement.ts",
+                "VersionStatus.ts",
                 "index.ts",
             ]
             .contains(&file.as_str())
